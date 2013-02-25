@@ -312,18 +312,17 @@ class DedupFS(fuse.Fuse): # {{{1
     try:
       self.__log_call('getattr', 'getattr(%r)', path)
       inode = self.__path2keys(path)[1]
-      query = 'SELECT inode, nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime FROM inodes WHERE inode = ?'
-      attrs = self.conn.execute(query, (inode,)).fetchone()
-      result = Stat(st_ino     = attrs[0],
-                    st_nlink   = attrs[1],
-                    st_mode    = attrs[2],
-                    st_uid     = attrs[3],
-                    st_gid     = attrs[4],
-                    st_rdev    = attrs[5],
-                    st_size    = attrs[6],
-                    st_atime   = attrs[7],
-                    st_mtime   = attrs[8],
-                    st_ctime   = attrs[9],
+      attrs = self.db.gett_attr()
+      result = Stat(st_ino     = attrs['inode'],
+                    st_nlink   = attrs['nlinks'],
+                    st_mode    = attrs['mode'],
+                    st_uid     = attrs['uid'],
+                    st_gid     = attrs['gid'],
+                    st_rdev    = attrs['rdev'],
+                    st_size    = attrs['size'],
+                    st_atime   = attrs['atime'],
+                    st_mtime   = attrs['mtime'],
+                    st_ctime   = attrs['ctime'],
                     st_blksize = self.block_size,
                     st_blocks  = attrs[6] / 512,
                     st_dev     = 0)
@@ -352,7 +351,8 @@ class DedupFS(fuse.Fuse): # {{{1
       
       self.db.inc_links(target_ino)
       
-      if self.db.get_inode_mode(target_ino) & stat.S_IFDIR:
+      mode, uid, gid = self.db.get_mode_uid_gid(target_ino)
+      if mode & stat.S_IFDIR:
         self.db.inc_links(link_parent_ino)
         
       self.__cache_set(link_path, (node_id, target_ino))
@@ -531,7 +531,7 @@ class DedupFS(fuse.Fuse): # {{{1
       # Create an inode to hold the symbolic link.
       inode, parent_ino = self.__insert(link_path, self.link_mode, len(target_path))
       # Save the symbolic link's target.
-      self.conn.execute('INSERT INTO links (inode, target) VALUES (?, ?)', (inode, sqlite3.Binary(target_path)))
+      self.db.add_link(inode, target_path)
       self.__commit_changes()
       self.__gc_hook()
       return 0
@@ -545,8 +545,8 @@ class DedupFS(fuse.Fuse): # {{{1
       if self.read_only: return -errno.EROFS
       inode = self.__path2keys(path)[1]
       last_block = size / self.block_size
-      self.conn.execute('DELETE FROM "index" WHERE inode = ? AND block_nr > ?', (inode, last_block))
-      self.conn.execute('UPDATE inodes SET size = ? WHERE inode = ?', (size, inode))
+      self.db.clear_index(inode, last_block)
+      self.db.update_inode_size(inode, size, last_block);
       self.__gc_hook()
       self.__commit_changes()
       return 0
@@ -571,7 +571,7 @@ class DedupFS(fuse.Fuse): # {{{1
       if self.read_only: return -errno.EROFS
       inode = self.__path2keys(path)[1]
       atime, mtime = times
-      self.conn.execute('UPDATE inodes SET atime = ?, mtime = ? WHERE inode = ?', (atime, mtime, inode))
+      self.db.update_time(inode, atime, mtime)
       self.__gc_hook()
       return 0
     except Exception, e:
@@ -584,7 +584,7 @@ class DedupFS(fuse.Fuse): # {{{1
       inode = self.__path2keys(path)[1]
       atime = ts_acc.tv_sec + (ts_acc.tv_nsec / 1000000.0)
       mtime = ts_mod.tv_sec + (ts_mod.tv_nsec / 1000000.0)
-      self.conn.execute('UPDATE inodes SET atime = ?, mtime = ? WHERE inode = ?', (atime, mtime, inode))
+      self.db.update_time(inode, atime, mtime)
       self.__gc_hook()
       return 0
     except Exception, e:
@@ -625,32 +625,7 @@ class DedupFS(fuse.Fuse): # {{{1
     # which differs from the info returned in later calls. The simple fix is to
     # use Python's os.getuid() and os.getgid() library functions instead of
     # fuse.FuseGetContext().
-    uid, gid = os.getuid(), os.getgid()
-    t = self.__newctime()
-    self.conn.executescript("""
-
-      -- Create the required tables?
-      CREATE TABLE IF NOT EXISTS tree (id INTEGER PRIMARY KEY, parent_id INTEGER, name INTEGER NOT NULL, inode INTEGER NOT NULL, UNIQUE (parent_id, name));
-      CREATE TABLE IF NOT EXISTS strings (id INTEGER PRIMARY KEY, value BLOB NOT NULL UNIQUE);
-      CREATE TABLE IF NOT EXISTS inodes (inode INTEGER PRIMARY KEY, nlinks INTEGER NOT NULL, mode INTEGER NOT NULL, uid INTEGER, gid INTEGER, rdev INTEGER, size INTEGER, atime INTEGER, mtime INTEGER, ctime INTEGER);
-      CREATE TABLE IF NOT EXISTS links (inode INTEGER UNIQUE, target BLOB NOT NULL);
-      CREATE TABLE IF NOT EXISTS hashes (id INTEGER PRIMARY KEY, hash BLOB NOT NULL UNIQUE);
-      CREATE TABLE IF NOT EXISTS "index" (inode INTEGER, hash_id INTEGER, block_nr INTEGER, PRIMARY KEY (inode, hash_id, block_nr));
-      CREATE TABLE IF NOT EXISTS options (name TEXT PRIMARY KEY, value TEXT NOT NULL);
-
-      -- Create the root node of the file system?
-      INSERT OR IGNORE INTO strings (id, value) VALUES (1, '');
-      INSERT OR IGNORE INTO tree (id, parent_id, name, inode) VALUES (1, NULL, 1, 1);
-      INSERT OR IGNORE INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (2, %i, %i, %i, 0, 1024*4, %f, %f, %f);
-
-      -- Save the command line options used to initialize the database?
-      INSERT OR IGNORE INTO options (name, value) VALUES ('synchronous', %i);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('block_size', %i);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('compression_method', %r);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('hash_function', %r);
-
-    """ % (self.root_mode, uid, gid, t, t, t, self.synchronous and 1 or 0,
-           self.block_size, self.compression_method, self.hash_function))
+    self.db.initialize(os.getuid(), os.getgid())
 
   def __setup_database_connections(self, silent): # {{{3
     if not silent:
@@ -715,7 +690,7 @@ class DedupFS(fuse.Fuse): # {{{1
       self.logger.debug(msg, *args)
 
   def __get_opts_from_db(self, options): # {{{3
-    for name, value in self.conn.execute('SELECT name, value FROM options'):
+    for name, value in self.db.get_options():
       if name == 'synchronous':
         self.synchronous = int(value) != 0
         # If the user passed --nosync, override the value stored in the database.
@@ -753,7 +728,8 @@ class DedupFS(fuse.Fuse): # {{{1
   def __write_blocks(self, inode, buf, apparent_size): # {{{3
     start_time = time.time()
     # Delete existing index entries for file.
-    self.conn.execute('DELETE FROM "index" WHERE inode = ?', (inode,))
+    self.db.clear_index(inode)
+    
     # Store any changed blocks and rebuild the file index.
     storage_size = len(buf)
     for block_nr in xrange(int(math.ceil(storage_size / float(self.block_size)))):
@@ -761,7 +737,7 @@ class DedupFS(fuse.Fuse): # {{{1
       new_block = buf.read(self.block_size)
       digest = self.__hash(new_block)
       encoded_digest = sqlite3.Binary(digest)
-      row = self.conn.execute('SELECT id FROM hashes WHERE hash = ?', (encoded_digest,)).fetchone()
+      row = self.db.get_by_hash(encoded_digest)
       if row:
         hash_id = row[0]
         existing_block = self.decompress(self.blocks[digest])
@@ -781,23 +757,23 @@ class DedupFS(fuse.Fuse): # {{{1
               block_nr, inode, len(existing_block), digest,
               len(new_block), digest, dumpfile_collision)
           os._exit(1)
-        self.conn.execute('INSERT INTO "index" (inode, hash_id, block_nr) VALUES (?, ?, ?)', (inode, hash_id, block_nr))
+          self.db.add_hash_to_index(inode, hash_id, block_nr)
       else:
         self.blocks[digest] = self.compress(new_block)
-        self.conn.execute('INSERT INTO hashes (id, hash) VALUES (NULL, ?)', (encoded_digest,))
-        self.conn.execute('INSERT INTO "index" (inode, hash_id, block_nr) VALUES (?, last_insert_rowid(), ?)', (inode, block_nr))
+        hash_id = self.db.add_hash(encoded_digest);
+        self.db.add_hash_to_index(inode, hash_id, block_nr)
         # Check that the data was properly stored in the database?
         self.__verify_write(new_block, digest, block_nr, inode)
       block_nr += 1
     # Update file size and last modified time.
-    self.conn.execute('UPDATE inodes SET size = ?, mtime = ? WHERE inode = ?', (apparent_size, self.__newctime(), inode))
+    self.db.update_inode_size(inode, apparent_size)
     self.time_spent_writing_blocks += time.time() - start_time
 
   def __insert(self, path, mode, size, rdev=0): # {{{3
     parent, name = os.path.split(path)
     parent_id, parent_ino = self.__path2keys(parent)
     nlinks = mode & stat.S_IFDIR and 2 or 1
-    t = self.__newctime()
+    t = time.time()
     uid, gid = self.__getctx()
     node_id, inode = self.db.insert_node_to_tree(name, parent_id, nlinks, mode, uid, gid, rdev, size, t)
     self.__cache_set(path, (node_id, inode))
@@ -806,18 +782,17 @@ class DedupFS(fuse.Fuse): # {{{1
   def __remove(self, path, check_empty=False): # {{{3
     node_id, inode = self.__path2keys(path)
     # Make sure directories are empty before deleting them to avoid orphaned inodes.
-    query = """ SELECT COUNT(t.id) FROM tree t, inodes i WHERE
-                t.parent_id = ? AND i.inode = t.inode AND i.nlinks > 0 """
-    if check_empty and self.__fetchval(query, node_id) > 0:
+    if check_empty and self.db.count_of_children(inode) > 0:
       raise OSError, (errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY), path)
     self.__cache_set(path, None)
-    self.conn.execute('DELETE FROM tree WHERE id = ?', (node_id,))
-    self.conn.execute('UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = ?', (inode,))
+    self.db.remove_leaf(node_id, inode);
     # Inodes with nlinks = 0 are purged periodically from __collect_garbage() so
     # we don't have to do that here.
-    if self.__fetchval('SELECT mode FROM inodes where inode = ?', inode) & stat.S_IFDIR:
+    mode, uid, gid = self.db.get_mode_uid_gid(inode)
+    if mode & stat.S_IFDIR:
       parent_id, parent_ino = self.__path2keys(os.path.split(path)[0])
-      self.conn.execute('UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = ?', (parent_ino,))
+      self.db.dec_links(parent_ino)
+      
 
   def __verify_write(self, block, digest, block_nr, inode): # {{{3
     if self.verify_writes:
@@ -866,8 +841,7 @@ class DedupFS(fuse.Fuse): # {{{1
         node_id, inode = node[self.__NODE_KEY_VALUE]
       else:
         query_start_time = time.time()
-        query = 'SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id AND s.value = ? LIMIT 1'
-        result = self.conn.execute(query, (parent_id, sqlite3.Binary(segment))).fetchone()
+        result = self.db.get_node_id_inode_by_parrent_and_name()
         self.time_spent_querying_tree += time.time() - query_start_time
         if result == None:
           self.__cache_check_gc()
@@ -934,9 +908,6 @@ class DedupFS(fuse.Fuse): # {{{1
   def __split_segments(self, key): # {{{3
     return filter(None, key.split('/'))
 
-  def __newctime(self): # {{{3
-    return time.time()
-
   def __getctx(self): # {{{3
     c = fuse.FuseGetContext()
     return (c['uid'], c['gid'])
@@ -976,9 +947,9 @@ class DedupFS(fuse.Fuse): # {{{1
           self.logger.debug(" - %-*s%s (%i%%)" % (maxdescwidth, description + ':', format_timespan(timespan), percentage))
 
   def report_disk_usage(self): # {{{3
-    disk_usage = self.__fetchval('PRAGMA page_size') * self.__fetchval('PRAGMA page_count')
+    disk_usage = self.db.get_disk_usage()
     disk_usage += os.stat(self.datastore_file).st_size
-    apparent_size = self.__fetchval('SELECT SUM(inodes.size) FROM tree, inodes WHERE tree.inode = inodes.inode')
+    apparent_size = self.db.get_used_space()
     self.logger.info("The total apparent size is %s while the databases take up %s (that's %.2f%%).",
         format_size(apparent_size), format_size(disk_usage), float(disk_usage) / (apparent_size / 100))
 
@@ -1008,17 +979,9 @@ class DedupFS(fuse.Fuse): # {{{1
       return nbytes, nseconds
 
   def __report_top_blocks(self): # {{{3
-    query = """
-      SELECT * FROM (
-        SELECT *, COUNT(*) AS "count" FROM "index"
-        GROUP BY hash_id ORDER BY "count" DESC
-      ), hashes WHERE
-        "count" > 1 AND
-        hash_id = hashes.id
-        LIMIT 10 """
     if self.logger.isEnabledFor(logging.DEBUG):
       printed_header = False
-      for row in self.conn.execute(query):
+      for row in self.db.get_top_blocks():
         if not printed_header:
           self.logger.debug("A listing of the most used blocks follows:")
           printed_header = True
@@ -1061,31 +1024,31 @@ class DedupFS(fuse.Fuse): # {{{1
       self.logger.info("Finished garbage collection in %s.", format_timespan(elapsed_time))
 
   def __collect_strings(self): # {{{4
-    count = self.conn.execute('DELETE FROM strings WHERE id NOT IN (SELECT name FROM tree)').rowcount
+    count = self.db.clean_strings()
     if count > 0:
       self.should_vacuum = True
       return "Cleaned up %i unused path segment%s in %%s." % (count, count != 1 and 's' or '')
 
   def __collect_inodes(self): # {{{4
-    count = self.conn.execute('DELETE FROM inodes WHERE nlinks = 0').rowcount
+    count = self.db.clean_inodes()
     if count > 0:
       self.should_vacuum = True
       return "Cleaned up %i unused inode%s in %%s." % (count, count != 1 and 's' or '')
 
   def __collect_indices(self): # {{{4
-    count = self.conn.execute('DELETE FROM "index" WHERE inode NOT IN (SELECT inode FROM inodes)').rowcount
+    count = self.db.clean_indices()
     if count > 0:
       self.should_vacuum = True
       return "Cleaned up %i unused index entr%s in %%s." % (count, count != 1 and 'ies' or 'y')
 
   def __collect_blocks(self): # {{{4
     should_reorganize = False
-    for row in self.conn.execute('SELECT hash FROM hashes WHERE id NOT IN (SELECT hash_id FROM "index")'):
+    for row in self.db.find_unused_hashes(): 
       del self.blocks[str(row[0])]
       should_reorganize = True
     if should_reorganize:
       self.__dbmcall('reorganize')
-    count = self.conn.execute('DELETE FROM hashes WHERE id NOT IN (SELECT hash_id FROM "index")').rowcount
+    count = self.db.clean_hashes() 
     if count > 0:
       self.should_vacuum = True
       return "Cleaned up %i unused data block%s in %%s." % (count, count != 1 and 's' or '')
@@ -1110,18 +1073,12 @@ class DedupFS(fuse.Fuse): # {{{1
     else:
       buf = Buffer()
       inode = self.__path2keys(path)[1]
-      query = """ SELECT h.hash FROM hashes h, "index" i
-                  WHERE i.inode = ? AND h.id = i.hash_id
-                  ORDER BY i.block_nr ASC """
-      for row in self.conn.execute(query, (inode,)).fetchall():
+      for row in self.db.list_hash(inode):
         # TODO Make the file system more robust against failure by doing
         # something sensible when self.blocks.has_key(digest) is false.
         buf.write(self.decompress(self.blocks[str(row[0])]))
       self.buffers[path] = buf
       return buf
-
-  def __fetchval(self, query, *values): # {{{3
-    return self.conn.execute(query, values).fetchone()[0]
 
   def __except_to_status(self, method, exception, code=errno.ENOENT): # {{{3
     # Don't report ENOENT raised from getattr().
