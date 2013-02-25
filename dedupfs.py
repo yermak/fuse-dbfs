@@ -22,6 +22,8 @@ Copyright 2010 Peter Odding <peter@peterodding.com>.
 
 # Imports. {{{1
 
+
+
 # Check the Python version, warn the user if untested.
 import sys
 if sys.version_info[:2] != (2, 6):
@@ -56,6 +58,7 @@ except ImportError:
 # Local modules that are mostly useful for debugging.
 from my_formats import format_size, format_timespan
 from get_memory_usage import get_memory_usage
+from db import Db
 
 def main(): # {{{1
   """
@@ -209,7 +212,7 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('chmod', 'chmod(%r, %o)', path, mode)
       if self.read_only: return -errno.EROFS
       inode = self.__path2keys(path)[1]
-      self.conn.execute('UPDATE inodes SET mode = ? WHERE inode = ?', (mode, inode))
+      self.db.update_mode(mode, inode)
       self.__gc_hook()
       return 0
     except Exception, e:
@@ -220,7 +223,7 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('chown', 'chown(%r, %i, %i)', path, uid, gid)
       if self.read_only: return -errno.EROFS
       inode = self.__path2keys(path)[1]
-      self.conn.execute('UPDATE inodes SET uid = ?, gid = ? WHERE inode = ?', (uid, gid, inode))
+      self.db.update_uid_gid(uid, gid, inode)
       self.__gc_hook()
       return 0
     except Exception, e:
@@ -343,12 +346,15 @@ class DedupFS(fuse.Fuse): # {{{1
       target_ino = self.__path2keys(target_path)[1]
       link_parent, link_name = os.path.split(link_path)
       link_parent_id, link_parent_ino = self.__path2keys(link_parent)
-      string_id = self.__intern(link_name)
-      self.conn.execute('INSERT INTO tree (parent_id, name, inode) VALUES (?, ?, ?)', (link_parent_id, string_id, target_ino))
-      node_id = self.__fetchval('SELECT last_insert_rowid()')
-      self.conn.execute('UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = ?', (target_ino,))
-      if self.__fetchval('SELECT mode FROM inodes WHERE inode = ?', target_ino) & stat.S_IFDIR:
-        self.conn.execute('UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = ?', (link_parent_ino,))
+      string_id = self.db.get_node_by_name(link_name)
+      node_id = self.db.add_leaf(link_parent_id, string_id, target_ino)
+      
+      
+      self.db.inc_links(target_ino)
+      
+      if self.db.get_inode_mode(target_ino) & stat.S_IFDIR:
+        self.db.inc_links(link_parent_ino)
+        
       self.__cache_set(link_path, (node_id, target_ino))
       self.__commit_changes(nested)
       self.__gc_hook(nested)
@@ -363,7 +369,7 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('mkdir', 'mkdir(%r, %o)', path, mode)
       if self.read_only: return -errno.EROFS
       inode, parent_ino = self.__insert(path, mode | stat.S_IFDIR, 1024 * 4)
-      self.conn.execute('UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = ?', (parent_ino,))
+      self.db.inc_links(parent_ino);
       self.__commit_changes()
       self.__gc_hook()
       return 0
@@ -420,8 +426,7 @@ class DedupFS(fuse.Fuse): # {{{1
       node_id, inode = self.__path2keys(path)
       yield fuse.Direntry('.', ino=inode)
       yield fuse.Direntry('..')
-      query = "SELECT t.inode, s.value FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id"
-      for inode, name in self.conn.execute(query, (node_id,)).fetchall():
+      for inode, name in self.db.list_childs(node_id):
         yield fuse.Direntry(str(name), ino=inode)
     except Exception, e:
       self.__except_to_status('readdir', e)
@@ -430,8 +435,7 @@ class DedupFS(fuse.Fuse): # {{{1
     try:
       self.__log_call('readlink', 'readlink(%r)', path)
       inode = self.__path2keys(path)[1]
-      query = 'SELECT target FROM links WHERE inode = ?'
-      return str(self.__fetchval(query, inode))
+      return self.db.get_target(inode)
     except Exception, e:
       return self.__except_to_status('readlink', e, errno.ENOENT)
 
@@ -658,15 +662,10 @@ class DedupFS(fuse.Fuse): # {{{1
       from whichdb import whichdb
       created_by_gdbm = whichdb(self.metastore_file) == 'gdbm'
       self.blocks = self.__open_datastore(created_by_gdbm)
-    # Open an SQLite database connection with manual transaction management.
-    self.conn = sqlite3.connect(self.metastore_file, isolation_level=None)
-    # Use the built in row factory to enable named attributes.
-    self.conn.row_factory = sqlite3.Row
-    # Return regular strings instead of Unicode objects.
-    self.conn.text_factory = str
-    # Don't bother releasing any locks since there's currently no point in
-    # having concurrent reading/writing of the file system database.
-    self.conn.execute('PRAGMA locking_mode = EXCLUSIVE')
+    
+    self.db = Db(self.metastore_file)
+    self.conn = self.db.conn()
+   
 
   def __open_datastore(self, use_gdbm):
     # gdbm is preferred over other dbm implementations because it supports fast
@@ -800,23 +799,9 @@ class DedupFS(fuse.Fuse): # {{{1
     nlinks = mode & stat.S_IFDIR and 2 or 1
     t = self.__newctime()
     uid, gid = self.__getctx()
-    self.conn.execute('INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', (nlinks, mode, uid, gid, rdev, size, t, t, t))
-    inode = self.__fetchval('SELECT last_insert_rowid()')
-    string_id = self.__intern(name)
-    self.conn.execute('INSERT INTO tree (parent_id, name, inode) VALUES (?, ?, ?)', (parent_id, string_id, inode))
-    node_id = self.__fetchval('SELECT last_insert_rowid()')
+    node_id, inode = self.db.insert_node_to_tree(name, parent_id, nlinks, mode, uid, gid, rdev, size, t)
     self.__cache_set(path, (node_id, inode))
     return inode, parent_ino
-
-  def __intern(self, string): # {{{3
-    start_time = time.time()
-    args = (sqlite3.Binary(string),)
-    result = self.conn.execute('SELECT id FROM strings WHERE value = ?', args).fetchone()
-    if not result:
-      self.conn.execute('INSERT INTO strings (id, value) VALUES (NULL, ?)', args)
-      result = self.conn.execute('SELECT last_insert_rowid()').fetchone()
-    self.time_spent_interning += time.time() - start_time
-    return int(result[0])
 
   def __remove(self, path, check_empty=False): # {{{3
     node_id, inode = self.__path2keys(path)
@@ -854,16 +839,14 @@ class DedupFS(fuse.Fuse): # {{{1
     # Check if the flags include writing while the database is read only.
     if self.read_only and flags & os.W_OK:
       return False
-    # Get the path's mode, owner and group through the inode.
-    query = 'SELECT mode, uid, gid FROM inodes WHERE inode = ?'
-    attrs = self.conn.execute(query, (inode,)).fetchone()
+    inode_mode, inode_uid, inode_gid = self.db.get_mode_uid_gid(inode);
     # Determine by whom the request is being made.
     uid, gid = self.__getctx()
-    o = uid == attrs['uid'] # access by same user id?
-    g = gid == attrs['gid'] and not o # access by same group id?
+    o = uid == inode_uid # access by same user id?
+    g = gid == inode_gid and not o # access by same group id?
     # Note: "and not o" added after experimenting with EXT4.
     w = not (o or g) # anything else
-    m = attrs['mode']
+    m = inode_mode
     # The essence of UNIX file permissions. Did I miss anything?! (Probably...)
     return (not (flags & os.R_OK) or ((o and (m & 0400)) or (g and (m & 0040)) or (w and (m & 0004)))) \
        and (not (flags & os.W_OK) or ((o and (m & 0200)) or (g and (m & 0020)) or (w and (m & 0002)))) \
