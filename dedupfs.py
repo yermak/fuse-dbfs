@@ -24,6 +24,7 @@ Copyright 2010 Peter Odding <peter@peterodding.com>.
 
 
 
+
 # Check the Python version, warn the user if untested.
 import sys
 if sys.version_info[:2] != (2, 6):
@@ -241,11 +242,11 @@ class DedupFS(fuse.Fuse): # {{{1
         # Otherwise create a new file and open that.
         inode, parent_ino = self.__insert(path, mode, 0)
         status = self.open(path, flags, nested=True, inode=inode)
-      self.__commit_changes()
+      self.db.commit()
       self.__gc_hook()
       return status
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('create', e, errno.EIO)
 
   def fsdestroy(self, silent=False): # {{{3
@@ -256,10 +257,9 @@ class DedupFS(fuse.Fuse): # {{{1
         self.__print_stats()
       if not self.read_only:
         self.logger.info("Committing outstanding changes to `%s'.", self.metastore_file)
-        self.__dbmcall('sync')
-        self.conn.commit()
-      self.conn.close()
-      self.__dbmcall('close')
+        self.db.dbmcall('sync')
+        self.db.commit()
+      self.db.close()
       return 0
     except Exception, e:
       return self.__except_to_status('fsdestroy', e, errno.EIO)
@@ -275,12 +275,12 @@ class DedupFS(fuse.Fuse): # {{{1
       self.hash_function = options.hash_function
       self.metastore_file = self.__check_data_file(options.metastore, silent)
       self.synchronous = options.synchronous
-      self.use_transactions = options.use_transactions
+      
       self.verify_writes = options.verify_writes
       # Initialize the logging and database subsystems.
       self.__init_logging(options)
       self.__log_call('fsinit', 'fsinit()')
-      self.__setup_database_connections(silent)
+      self.__setup_database_connections(options.use_transactions, silent, options.synchronous)
       if not self.read_only:
         self.__init_metastore()
       self.__get_opts_from_db(options)
@@ -290,12 +290,6 @@ class DedupFS(fuse.Fuse): # {{{1
         sys.exit(1)
       # Get a reference to the hash function.
       self.hash_function_impl = getattr(hashlib, self.hash_function)
-      # Disable synchronous operation. This is supposed to make SQLite perform
-      # MUCH better but it has to be enabled wit --nosync because you might
-      # lose data when the file system isn't cleanly unmounted...
-      if not self.synchronous and not self.read_only:
-        self.logger.warning("Warning: Disabling synchronous operation, you might lose data..")
-        self.conn.execute('PRAGMA synchronous = OFF')
       # Select the compression method (if any) after potentially reading the
       # configured block size that was used to create the database (see the
       # set_block_size() call).
@@ -356,11 +350,11 @@ class DedupFS(fuse.Fuse): # {{{1
         self.db.inc_links(link_parent_ino)
         
       self.__cache_set(link_path, (node_id, target_ino))
-      self.__commit_changes(nested)
+      self.db.commit(nested)
       self.__gc_hook(nested)
       return 0
     except Exception, e:
-      self.__rollback_changes(nested)
+      self.db.rollback(nested)
       if nested: raise
       return self.__except_to_status('link', e, errno.EIO)
 
@@ -370,11 +364,11 @@ class DedupFS(fuse.Fuse): # {{{1
       if self.read_only: return -errno.EROFS
       inode, parent_ino = self.__insert(path, mode | stat.S_IFDIR, 1024 * 4)
       self.db.inc_links(parent_ino);
-      self.__commit_changes()
+      self.db.commit()
       self.__gc_hook()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('mkdir', e, errno.EIO)
 
   def mknod(self, path, mode, rdev): # {{{3
@@ -382,11 +376,11 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('mknod', 'mknod(%r, %o)', path, mode)
       if self.read_only: return -errno.EROFS
       self.__insert(path, mode, 0, rdev)
-      self.__commit_changes()
+      self.db.commit()
       self.__gc_hook()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('mknod', e, errno.EIO)
 
   def open(self, path, flags, nested=None, inode=None): # {{{3
@@ -457,9 +451,9 @@ class DedupFS(fuse.Fuse): # {{{1
           # resulting blocks and store any new blocks.
           try:
             self.__write_blocks(inode, buf, apparent_size)
-            self.__commit_changes()
+            self.db.commit()
           except Exception, e:
-            self.__rollback_changes()
+            self.db.rollback()
             raise
           # Record the number of bytes written and the elapsed time.
           self.bytes_written += apparent_size
@@ -487,11 +481,11 @@ class DedupFS(fuse.Fuse): # {{{1
       self.link(old_path, new_path, nested=True)
       # Finally unlink the old path.
       self.unlink(old_path, nested=True)
-      self.__commit_changes()
+      self.db.commit()
       self.__gc_hook()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('rename', e, errno.ENOENT)
 
   def rmdir(self, path): # {{{3
@@ -499,10 +493,10 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('rmdir', 'rmdir(%r)', path)
       if self.read_only: return -errno.EROFS
       self.__remove(path, check_empty=True)
-      self.__commit_changes()
+      self.db.commit()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('rmdir', e, errno.ENOENT)
 
   def statfs(self): # {{{3
@@ -532,11 +526,11 @@ class DedupFS(fuse.Fuse): # {{{1
       inode, parent_ino = self.__insert(link_path, self.link_mode, len(target_path))
       # Save the symbolic link's target.
       self.db.add_link(inode, target_path)
-      self.__commit_changes()
+      self.db.commit()
       self.__gc_hook()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('symlink', e, errno.EIO)
 
   def truncate(self, path, size): # {{{3
@@ -548,10 +542,10 @@ class DedupFS(fuse.Fuse): # {{{1
       self.db.clear_index(inode, last_block)
       self.db.update_inode_size(inode, size, last_block);
       self.__gc_hook()
-      self.__commit_changes()
+      self.db.commit()
       return 0
     except Exception, e:
-      self.__rollback_changes()
+      self.db.rollback()
       return self.__except_to_status('truncate', e, errno.ENOENT)
 
   def unlink(self, path, nested=False): # {{{3
@@ -559,9 +553,9 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__log_call('unlink', '%sunlink(%r)', nested and ' ' or '', path)
       if self.read_only: return -errno.EROFS
       self.__remove(path)
-      self.__commit_changes(nested)
+      self.db.commit(nested)
     except Exception, e:
-      self.__rollback_changes(nested)
+      self.db.rollback(nested)
       if nested: raise
       return self.__except_to_status('unlink', e, errno.ENOENT)
 
@@ -627,43 +621,14 @@ class DedupFS(fuse.Fuse): # {{{1
     # fuse.FuseGetContext().
     self.db.initialize(os.getuid(), os.getgid())
 
-  def __setup_database_connections(self, silent): # {{{3
+  def __setup_database_connections(self, use_transactions, silent): # {{{3
     if not silent:
       self.logger.info("Using data files %r and %r.", self.metastore_file, self.datastore_file)
-    # Open the key/value store containing the data blocks.
-    if not os.path.exists(self.metastore_file):
-      self.blocks = self.__open_datastore(True)
-    else:
-      from whichdb import whichdb
-      created_by_gdbm = whichdb(self.metastore_file) == 'gdbm'
-      self.blocks = self.__open_datastore(created_by_gdbm)
     
-    self.db = Db(self.metastore_file)
-    self.conn = self.db.conn()
+    self.db = Db(self.metastore_file, use_transactions)
+#    self.blocks = self.db.blocks()
+#    self.conn = self.db.conn()
    
-
-  def __open_datastore(self, use_gdbm):
-    # gdbm is preferred over other dbm implementations because it supports fast
-    # vs. synchronous modes, however any other dedicated key/value store should
-    # work just fine (albeit not as fast). Note though that existing key/value
-    # stores are always accessed through the library that created them.
-    mode = self.read_only and 'r' or 'c'
-    if use_gdbm:
-      try:
-        import gdbm
-        mode += self.synchronous and 's' or 'f'
-        return gdbm.open(self.datastore_file, mode)
-      except ImportError:
-        pass
-    import anydbm
-    return anydbm.open(self.datastore_file, mode)
-
-  def __dbmcall(self, fun): # {{{3
-    # I simply cannot find any freakin' documentation on the type of objects
-    # returned by anydbm and gdbm, so cannot verify that any single method will
-    # always be there, although most seem to...
-    if hasattr(self.blocks, fun):
-      getattr(self.blocks, fun)()
 
   def __check_data_file(self, pathname, silent): # {{{3
     pathname = os.path.expanduser(pathname)
@@ -740,7 +705,7 @@ class DedupFS(fuse.Fuse): # {{{1
       row = self.db.get_by_hash(encoded_digest)
       if row:
         hash_id = row[0]
-        existing_block = self.decompress(self.blocks[digest])
+        existing_block = self.decompress(db.get_data(digest))
         # Check for hash collisions.
         if new_block != existing_block:
           # Found a hash collision: dump debugging info and exit.
@@ -759,7 +724,8 @@ class DedupFS(fuse.Fuse): # {{{1
           os._exit(1)
           self.db.add_hash_to_index(inode, hash_id, block_nr)
       else:
-        self.blocks[digest] = self.compress(new_block)
+        self.db.set_data(digest, new_block)
+        
         hash_id = self.db.add_hash(encoded_digest);
         self.db.add_hash_to_index(inode, hash_id, block_nr)
         # Check that the data was properly stored in the database?
@@ -796,7 +762,7 @@ class DedupFS(fuse.Fuse): # {{{1
 
   def __verify_write(self, block, digest, block_nr, inode): # {{{3
     if self.verify_writes:
-      saved_value = self.decompress(self.blocks[digest])
+      saved_value = self.decompress(self.db.get_data(digest))
       if saved_value != block:
         # The data block was corrupted when it was written or read.
         dumpfile_corruption = '/tmp/dedupfs-corruption-%i' % time.time()
@@ -1043,11 +1009,12 @@ class DedupFS(fuse.Fuse): # {{{1
 
   def __collect_blocks(self): # {{{4
     should_reorganize = False
-    for row in self.db.find_unused_hashes(): 
-      del self.blocks[str(row[0])]
+    for row in self.db.find_unused_hashes():
+      digest = str(row[0]) 
+      self.db.remove_data(digest)
       should_reorganize = True
     if should_reorganize:
-      self.__dbmcall('reorganize')
+      self.db.dbmcall('reorganize')
     count = self.db.clean_hashes() 
     if count > 0:
       self.should_vacuum = True
@@ -1055,18 +1022,9 @@ class DedupFS(fuse.Fuse): # {{{1
 
   def __vacuum_metastore(self): # {{{4
     if self.should_vacuum:
-      self.conn.execute('VACUUM')
+      self.db.vacuum();
       return "Vacuumed SQLite metadata store in %s."
-
-  def __commit_changes(self, nested=False): # {{{3
-    if self.use_transactions and not nested:
-      self.conn.commit()
-
-  def __rollback_changes(self, nested=False): # {{{3
-    if self.use_transactions and not nested:
-      self.logger.info('Rolling back changes')
-      self.conn.rollback()
-
+  
   def __get_file_buffer(self, path): # {{{3
     if path in self.buffers:
       return self.buffers[path]
@@ -1076,7 +1034,8 @@ class DedupFS(fuse.Fuse): # {{{1
       for row in self.db.list_hash(inode):
         # TODO Make the file system more robust against failure by doing
         # something sensible when self.blocks.has_key(digest) is false.
-        buf.write(self.decompress(self.blocks[str(row[0])]))
+        digest = str(row[0])
+        buf.write(self.decompress(self.db.get_data(digest)))
       self.buffers[path] = buf
       return buf
 

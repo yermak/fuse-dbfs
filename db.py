@@ -6,7 +6,6 @@ Created on Feb 25, 2013
 
 import sys
 
-
 # Try to load the required modules from Python's standard library.
 try:
   import cStringIO
@@ -25,8 +24,22 @@ except ImportError, e:
   sys.exit(1)
 
 class Db:
-  def __init__(self, metastore_file):
+  def __init__(self, metastore_file, use_transactions, synchronous ):
+    self.use_transactions = use_transactions
     try:
+      # Initialize a Logger() object to handle logging.
+      self.logger = logging.getLogger('fuse-dbfs.db')
+      self.logger.setLevel(logging.INFO)
+      self.logger.addHandler(logging.StreamHandler(sys.stderr))
+      
+      # Open the key/value store containing the data blocks.
+      if not os.path.exists(self.metastore_file):
+        self.__blocks = self.__open_datastore(True)
+      else:
+        from whichdb import whichdb
+        created_by_gdbm = whichdb(self.metastore_file) == 'gdbm'
+        self.__blocks = self.__open_datastore(created_by_gdbm)
+      
       # Open an SQLite database connection with manual transaction management. 
       self.__conn = sqlite3.connect(metastore_file, isolation_level=None)
       # Use the built in row factory to enable named attributes.
@@ -36,11 +49,24 @@ class Db:
       # Don't bother releasing any locks since there's currently no point in
       # having concurrent reading/writing of the file system database.
       self.__conn.execute('PRAGMA locking_mode = EXCLUSIVE')
+      
+      # Disable synchronous operation. This is supposed to make SQLite perform
+      # MUCH better but it has to be enabled wit --nosync because you might
+      # lose data when the file system isn't cleanly unmounted...
+      if not synchronous and not self.read_only:
+        self.logger.warning("Warning: Disabling synchronous operation, you might lose data..")
+        self.conn.execute('PRAGMA synchronous = OFF')
+
+      
     except ImportError, e:
       msg = "Error: Failed to load one of the required Python modules! (%s)\n"
       sys.stderr.write(msg % str(e))
       sys.exit(1)
     
+
+  def blocks(self):
+    return self.__blocks
+
 
   def conn(self):
     return self.__conn;    
@@ -85,7 +111,7 @@ class Db:
     
   def add_leaf(self, link_parent_id, string_id, target_ino):
     self.__conn.execute('INSERT INTO tree (parent_id, name, inode) VALUES (?, ?, ?)', (link_parent_id, string_id, target_ino))
-    return self.conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    return self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
 
   def remove_leaf(self, node_id, inode):
     self.__conn.execute('DELETE FROM tree WHERE id = ?', (node_id,))
@@ -105,11 +131,11 @@ class Db:
 
   
   def get_target(self, inode):
-    return str(self.conn.execute('SELECT target FROM links WHERE inode = ?', (inode)).fetchone()[0])
+    return str(self.__conn.execute('SELECT target FROM links WHERE inode = ?', (inode)).fetchone()[0])
 
   
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
-    self.conn.execute('INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    self.__conn.execute('INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                        (nlinks, mode, uid, gid, rdev, size, t, t, t))
     inode = self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
     string_id = self.get_node_by_name(name)
@@ -124,7 +150,7 @@ class Db:
     result = self.__conn.execute('SELECT id FROM strings WHERE value = ?', args).fetchone()
     if not result:
       self.__conn.execute('INSERT INTO strings (id, value) VALUES (NULL, ?)', args)
-      result = self.conn.execute('SELECT last_insert_rowid()').fetchone()
+      result = self.__conn.execute('SELECT last_insert_rowid()').fetchone()
     self.time_spent_interning += time.time() - start_time
     return int(result[0])
 
@@ -212,7 +238,7 @@ class Db:
   
   def get_node_id_inode_by_parrent_and_name(self, parent_id, name):
     query = 'SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id AND s.value = ? LIMIT 1'
-    return self.conn.execute(query, (parent_id, sqlite3.Binary(name))).fetchone()
+    return self.__conn.execute(query, (parent_id, sqlite3.Binary(name))).fetchone()
 
   
   def get_top_blocks(self):
@@ -225,69 +251,58 @@ class Db:
         hash_id = hashes.id
         LIMIT 10 """
     return self.__conn.execute(query)
-  
-  
+
+
+  def __open_datastore(self, use_gdbm):
+    # gdbm is preferred over other dbm implementations because it supports fast
+    # vs. synchronous modes, however any other dedicated key/value store should
+    # work just fine (albeit not as fast). Note though that existing key/value
+    # stores are always accessed through the library that created them.
+    mode = self.read_only and 'r' or 'c'
+    if use_gdbm:
+      try:
+        import gdbm
+        mode += self.synchronous and 's' or 'f'
+        return gdbm.open(self.datastore_file, mode)
+      except ImportError:
+        pass
+    import anydbm
+    return anydbm.open(self.datastore_file, mode)
+
+  def get_data(self, digest):
+    return self.__blocks[digest]
 
   
-  
+  def set_data(self, digest, new_block):
+    self.__blocks[digest] = self.compress(new_block)
 
   
-  
-  
-  
-  
-  
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  
-
-  
-  
-  
-
-  
-  
-  
-  
-
-  
-  
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  
-  
+  def remove_data(self, digest):
+    del self.__blocks[digest]
     
+  def dbmcall(self, fun): # {{{3
+    # I simply cannot find any freakin' documentation on the type of objects
+    # returned by anydbm and gdbm, so cannot verify that any single method will
+    # always be there, although most seem to...
+    if hasattr(self.__blocks, fun):
+      getattr(self.__blocks, fun)()
+
+  def commit(self, nested=False): # {{{3
+    if self.use_transactions and not nested:
+      self.__conn.commit()
   
+  def rollback_(self, nested=False): # {{{3
+    if self.use_transactions and not nested:
+      self.logger.info('Rolling back changes')
+      self.__conn.rollback()
+
+  def close(self):
+    self._conn.close()
+    self.dbmcall('close')
+
   
-  
-  
+  def vacuum(self):
+    self.__conn.execute('VACUUM')
   
   
   
