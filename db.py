@@ -65,11 +65,9 @@ class Db:
       msg = "Error: Failed to load one of the required Python modules! (%s)\n"
       sys.stderr.write(msg % str(e))
       sys.exit(1)
-    
 
   def blocks(self):
     return self.__blocks
-
 
   def conn(self):
     return self.__conn;    
@@ -290,6 +288,9 @@ class Db:
     if hasattr(self.__blocks, fun):
       getattr(self.__blocks, fun)()
 
+  def openConnection(self):
+    pass
+    
   def commit(self, nested=False): # {{{3
     if self.use_transactions and not nested:
       self.__conn.commit()
@@ -307,6 +308,8 @@ class Db:
   def vacuum(self):
     self.__conn.execute('VACUUM')
   
+
   
+
   
   
