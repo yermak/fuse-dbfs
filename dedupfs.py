@@ -142,10 +142,14 @@ class DedupFS(fuse.Fuse): # {{{1
       self.__NODE_KEY_LAST_USED = 1
 
       # Initialize a Logger() object to handle logging.
-      self.logger = logging.getLogger('dedupfs')
-      self.logger.setLevel(logging.INFO)
-      self.logger.addHandler(logging.StreamHandler(sys.stderr))
+      self.logger = logging.getLogger('fuse-dbfs.main')
+      self.logger.setLevel(logging.DEBUG)
+#      self.logger.addHandler(logging.StreamHandler(sys.stdout))
+      fh = logging.FileHandler('fuse.log')
+      fh.setLevel(logging.DEBUG)
+      self.logger.addHandler(fh);
 
+      
       # Register some custom command line options with the option parser.
       option_stored_in_db = " (this option is only useful when creating a new database, because your choice is stored in the database and can't be changed after that)"
       self.parser.set_conflict_handler('resolve') # enable overriding the --help message.
@@ -265,6 +269,7 @@ class DedupFS(fuse.Fuse): # {{{1
       return self.__except_to_status('fsdestroy', e, errno.EIO)
 
   def fsinit(self, silent=False): # {{{3
+    self.logger.debug('fsinit started')
     try:
       # Process the custom command line options defined in __init__().
       options = self.cmdline[0]
@@ -278,8 +283,10 @@ class DedupFS(fuse.Fuse): # {{{1
       
       self.verify_writes = options.verify_writes
       # Initialize the logging and database subsystems.
-      self.__init_logging(options)
-      self.__log_call('fsinit', 'fsinit()')
+#      self.__init_logging(options)
+#      self.__log_call('fsinit', 'fsinit()')
+      
+      self.logger.debug('about to start db init')
       self.__setup_database_connections(options.use_transactions, silent, options.synchronous)
       if not self.read_only:
         self.__init_metastore()
@@ -621,11 +628,9 @@ class DedupFS(fuse.Fuse): # {{{1
     # fuse.FuseGetContext().
     self.db.initialize(os.getuid(), os.getgid())
 
-  def __setup_database_connections(self, use_transactions, silent): # {{{3
-    if not silent:
-      self.logger.info("Using data files %r and %r.", self.metastore_file, self.datastore_file)
-    
-    self.db = Db(self.metastore_file, use_transactions)
+  def __setup_database_connections(self, use_transactions, silent, synchronous): # {{{3
+    self.logger.debug("Using data files %r and %r.", self.metastore_file, self.datastore_file)
+    self.db = Db(self.metastore_file, use_transactions, synchronous)
 #    self.blocks = self.db.blocks()
 #    self.conn = self.db.conn()
    
@@ -705,7 +710,7 @@ class DedupFS(fuse.Fuse): # {{{1
       row = self.db.get_by_hash(encoded_digest)
       if row:
         hash_id = row[0]
-        existing_block = self.decompress(db.get_data(digest))
+        existing_block = self.decompress(self.db.get_data(digest))
         # Check for hash collisions.
         if new_block != existing_block:
           # Found a hash collision: dump debugging info and exit.

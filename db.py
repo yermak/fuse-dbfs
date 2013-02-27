@@ -29,8 +29,11 @@ class Db:
     try:
       # Initialize a Logger() object to handle logging.
       self.logger = logging.getLogger('fuse-dbfs.db')
-      self.logger.setLevel(logging.INFO)
-      self.logger.addHandler(logging.StreamHandler(sys.stderr))
+      self.logger.setLevel(logging.DEBUG)
+#      self.logger.addHandler(logging.StreamHandler(sys.stdout))
+      fh = logging.FileHandler('fuse.log')
+      fh.setLevel(logging.DEBUG)
+      self.logger.addHandler(fh);
       
       # Open the key/value store containing the data blocks.
       if not os.path.exists(self.metastore_file):
