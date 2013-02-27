@@ -275,7 +275,7 @@ class Db:
 
   
   def set_data(self, digest, new_block):
-    self.__blocks[digest] = self.compress(new_block)
+    self.__blocks[digest] = new_block
 
   
   def remove_data(self, digest):
@@ -291,11 +291,11 @@ class Db:
   def openConnection(self):
     pass
     
-  def commit(self, nested=False): # {{{3
+  def commit(self, nested=False):
     if self.use_transactions and not nested:
       self.__conn.commit()
   
-  def rollback_(self, nested=False): # {{{3
+  def rollback_(self, nested=False):
     if self.use_transactions and not nested:
       self.logger.info('Rolling back changes')
       self.__conn.rollback()
@@ -303,7 +303,6 @@ class Db:
   def close(self):
     self._conn.close()
     self.dbmcall('close')
-
   
   def vacuum(self):
     self.__conn.execute('VACUUM')

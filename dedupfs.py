@@ -729,7 +729,7 @@ class DedupFS(fuse.Fuse): # {{{1
           os._exit(1)
           self.db.add_hash_to_index(inode, hash_id, block_nr)
       else:
-        self.db.set_data(digest, new_block)
+        self.db.set_data(digest, self.compress(new_block))
         
         hash_id = self.db.add_hash(encoded_digest);
         self.db.add_hash_to_index(inode, hash_id, block_nr)
