@@ -6,15 +6,33 @@ Created on 26.02.2013
 import MySQLdb
 import threading
 import time
+import json
+import logging
+import sys
 
-class MysqlDB():
+class MysqlDb():
   def __init__(self, host, database, user, password):
+    self.logger = logging.getLogger('fuse-dbfs.mysql')
+    self.logger.setLevel(logging.DEBUG)
+    self.logger.addHandler(logging.StreamHandler(sys.stdout))
+
     self.__db = MySQLdb.connect(host=host, user=user, passwd=password, db=database)
     self.__threadlocal = threading.local()
+    self.__sql = self.load_sql();
     pass
   
+  def sql(self, name):
+    return self.__sql[name]
+  
+  def load_sql(self):
+    with open('sql/sql.json') as data_file:    
+      data = json.load(data_file)
+    self.logger.debug(data)
+    return data
+    
+    
   def open_connection(self):
-    self.__threadlocal.cursor=self._db.cursor()
+    self.__threadlocal.cursor=self.__db.cursor()
   
   def conn(self):
     return self.__threadlocal.cursor
@@ -23,21 +41,20 @@ class MysqlDB():
     self.__threadlocal.cursor.close()
     self.__threadlocal.cursor = None
         
+  def execute_named_query(self, query_name):
+    query = self.sql(query_name)
+    self.logger.debug('Executing query: %s', query)
+    self.conn().execute(query)
+  
   def initialize(self, uid, gid):
     t = time.time()
-    self.__conn.executescript("""
-      INSERT OR IGNORE INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (2, %i, %i, %i, 0, 1024*4, %f, %f, %f);
-
-      -- Save the command line options used to initialize the database?
-      INSERT OR IGNORE INTO options (name, value) VALUES ('synchronous', %i);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('block_size', %i);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('compression_method', %r);
-      INSERT OR IGNORE INTO options (name, value) VALUES ('hash_function', %r);
-
-    """ % (self.root_mode, uid, gid, t, t, t, self.synchronous and 1 or 0,
-           self.block_size, self.compression_method, self.hash_function))
-
-
+    self.execute_named_query('create_tree')
+    self.execute_named_query('create_strings')
+    self.execute_named_query('create_inodes')
+    self.execute_named_query('create_links')
+    self.execute_named_query('create_hashes')
+    self.execute_named_query('create_indices')
+    self.execute_named_query('create_options')
   
   def update_mode(self, mode, inode):
     self.__conn.execute('UPDATE inodes SET mode = ? WHERE inode = ?', (mode, inode))
@@ -225,9 +242,7 @@ class MysqlDB():
     if hasattr(self.__blocks, fun):
       getattr(self.__blocks, fun)()
 
-  def openConnection(self):
-    pass
-    
+   
   def commit(self, nested=False):
     if self.use_transactions and not nested:
       self.__conn.commit()

@@ -1,0 +1,9 @@
+{
+"create_tree":"CREATE TABLE tree (id BIGINT PRIMARY KEY AUTO_INCREMENT, parent_id BIGINT, name BIGINT NOT NULL, inode BIGINT NOT NULL, UNIQUE (parent_id, name))",
+"create_strings": "CREATE TABLE strings (id INTEGER PRIMARY KEY AUTO_INCREMENT, string TEXT NOT NULL)",
+"create_inodes":"CREATE TABLE inodes (inode BIGINT PRIMARY KEY AUTO_INCREMENT, nlinks INTEGER NOT NULL, mode INTEGER NOT NULL, uid INTEGER, gid INTEGER, rdev INTEGER, size INTEGER, atime INTEGER, mtime INTEGER, ctime INTEGER)",
+"create_links":"CREATE TABLE links (inode BIGINT UNIQUE, target TEXT NOT NULL)",
+"create_hashes":"CREATE TABLE hashes (id BIGINT PRIMARY KEY AUTO_INCREMENT, hash CHAR(255) UNIQUE)", 
+"create_indices":"CREATE TABLE indices (inode BIGINT, hash_id BIGINT, block_nr INTEGER, PRIMARY KEY (inode, hash_id, block_nr))",
+"create_options": "CREATE TABLE options (name VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)"
+}

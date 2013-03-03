@@ -5,4 +5,8 @@
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/fuse-dbfs</path>
 </pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>C:\Dev\Python27\Lib\site-packages\MySQLdb</path>
+<path>C:\Dev\Python27\Lib\site-packages</path>
+</pydev_pathproperty>
 </pydev_project>
