@@ -58,30 +58,29 @@ class MysqlDb():
   
   def initialize(self, uid, gid, root_mode):
     t = time.time()
-    self.execute_named_query('create_tree')
-    self.execute_named_query('create_strings')
-    self.execute_named_query('create_inodes')
-    self.execute_named_query('create_links')
-    self.execute_named_query('create_hashes')
-    self.execute_named_query('create_indices')
-    self.execute_named_query('create_options')
+#    self.execute_named_query('create_tree')
+#    self.execute_named_query('create_strings')
+#    self.execute_named_query('create_inodes')
+#    self.execute_named_query('create_links')
+#    self.execute_named_query('create_hashes')
+#    self.execute_named_query('create_indices')
+#    self.execute_named_query('create_options')
     
     string_id = self.execute_named_query('insert_string_root')
     inode_id = self.execute_named_query('insert_inode_root', mode=root_mode, uid=uid, gid=gid, time=t)
-    self.execute_named_query('insert_tree_root', string_id=string_id, inode_id=inode_id)
+    self.execute_named_query('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
     
   
   def update_mode(self, mode, inode):
-    self.__conn.execute('UPDATE inodes SET mode = ? WHERE inode = ?', (mode, inode))
+    self.execute_named_query('update_inode_mode', mode=mode, inode=inode)
   
 
   def update_uid_gid(self, uid, gid, inode):
-    self.__conn.execute('UPDATE inodes SET uid = ?, gid = ? WHERE inode = ?', (uid, gid, inode))
+    self.execute_named_query('update_inode_uid_gid', uid=uid, gid=gid, inode=inode)
 
     
   def add_leaf(self, link_parent_id, string_id, target_ino):
-    self.__conn.execute('INSERT INTO tree (parent_id, name, inode) VALUES (?, ?, ?)', (link_parent_id, string_id, target_ino))
-    return self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    return self.execute_named_query('insert_tree_item', parent_id=link_parent_id,  string_id=string_id, inode_id=target_ino)
 
   def remove_leaf(self, node_id, inode):
     self.__conn.execute('DELETE FROM tree WHERE id = ?', (node_id,))
