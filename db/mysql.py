@@ -41,12 +41,22 @@ class MysqlDb():
     self.__threadlocal.cursor.close()
     self.__threadlocal.cursor = None
         
-  def execute_named_query(self, query_name):
+  def execute_named_query(self, query_name, **kwargs):
     query = self.sql(query_name)
-    self.logger.debug('Executing query: %s', query)
-    self.conn().execute(query)
+    self.logger.debug('Executing query: %s' , query)
+    if kwargs:
+      self.logger.debug('With parameters:')
+      for key in kwargs:
+        self.logger.debug('\t%s: %s' %(key, kwargs[key]))
+#    if kwargs:
+#      self.logger.debug('Prepared query: %s',  query.format(kwargs))
+    self.conn().execute(query, kwargs)
+    last_id = self.conn().lastrowid
+    if last_id:
+      self.logger.debug('Inserted id: %s', last_id)
+      return last_id
   
-  def initialize(self, uid, gid):
+  def initialize(self, uid, gid, root_mode):
     t = time.time()
     self.execute_named_query('create_tree')
     self.execute_named_query('create_strings')
@@ -55,6 +65,11 @@ class MysqlDb():
     self.execute_named_query('create_hashes')
     self.execute_named_query('create_indices')
     self.execute_named_query('create_options')
+    
+    string_id = self.execute_named_query('insert_string_root')
+    inode_id = self.execute_named_query('insert_inode_root', mode=root_mode, uid=uid, gid=gid, time=t)
+    self.execute_named_query('insert_tree_root', string_id=string_id, inode_id=inode_id)
+    
   
   def update_mode(self, mode, inode):
     self.__conn.execute('UPDATE inodes SET mode = ? WHERE inode = ?', (mode, inode))

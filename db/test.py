@@ -29,7 +29,7 @@ class Test(unittest.TestCase):
         mysqlDb = mysql.MysqlDb('localhost','dbfs','root', 'BISKVIT')
         self.logger.debug("Created MySQL server")
         mysqlDb.open_connection()                  
-        mysqlDb.initialize(0, 0)
+        mysqlDb.initialize(1, 2, 3)
         
         
         

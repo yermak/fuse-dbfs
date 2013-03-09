@@ -73,7 +73,7 @@ class Db:
     return self.__conn;    
   
 
-  def initialize(self, uid, gid):
+  def initialize(self, uid, gid, root_mode):
     t = time.time()
     self.__conn.executescript("""
 
@@ -97,7 +97,7 @@ class Db:
       INSERT OR IGNORE INTO options (name, value) VALUES ('compression_method', %r);
       INSERT OR IGNORE INTO options (name, value) VALUES ('hash_function', %r);
 
-    """ % (self.root_mode, uid, gid, t, t, t, self.synchronous and 1 or 0,
+    """ % (root_mode, uid, gid, t, t, t, self.synchronous and 1 or 0,
            self.block_size, self.compression_method, self.hash_function))
 
 

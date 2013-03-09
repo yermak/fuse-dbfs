@@ -626,7 +626,7 @@ class DedupFS(fuse.Fuse): # {{{1
     # which differs from the info returned in later calls. The simple fix is to
     # use Python's os.getuid() and os.getgid() library functions instead of
     # fuse.FuseGetContext().
-    self.db.initialize(os.getuid(), os.getgid())
+    self.db.initialize(os.getuid(), os.getgid(), self.root_mode)
 
   def __setup_database_connections(self, use_transactions, silent, synchronous): # {{{3
     self.logger.debug("Using data files %r and %r.", self.metastore_file, self.datastore_file)

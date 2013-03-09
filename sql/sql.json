@@ -5,12 +5,11 @@
 "create_links":"CREATE TABLE links (inode BIGINT UNIQUE, target TEXT NOT NULL)",
 "create_hashes":"CREATE TABLE hashes (id BIGINT PRIMARY KEY AUTO_INCREMENT, hash CHAR(255) UNIQUE)", 
 "create_indices":"CREATE TABLE indices (inode BIGINT, hash_id BIGINT, block_nr INTEGER, PRIMARY KEY (inode, hash_id, block_nr))",
-"create_options": "CREATE TABLE options (name VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)"
+"create_options": "CREATE TABLE options (name VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)",
 
-//TODO
-"insert_string_root" : "INSERT INTO strings (id, value) VALUES ('')",
-"insert_inode_root" : "INSERT OR IGNORE INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (2, %i, %i, %i, 0, 1024*4, %f, %f, %f)",
-"insert_tree_root" : "INSERT INTO tree (id, parent_id, name, inode) VALUES (1, NULL, 1, 1)",
+"insert_string_root" : "INSERT INTO strings (string) VALUES ('')",
+"insert_inode_root" : "INSERT inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (2, %(mode)s, %(uid)s, %(gid)s, 0, 1024*4, %(time)s, %(time)s, %(time)s)",
+"insert_tree_root" : "INSERT INTO tree (parent_id, name, inode) VALUES (NULL, %(string_id)s, %(inode_id)s)"
 
 
 }
