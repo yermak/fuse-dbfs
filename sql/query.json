@@ -1,0 +1,4 @@
+{
+    "update_mode": "UPDATE inodes SET mode = ? WHERE inode = ?",
+    "last_insert_rowid": "SELECT last_insert_rowid()"
+}
