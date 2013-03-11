@@ -4,13 +4,19 @@ Created on 26.02.2013
 @author: YErmak
 '''
 import MySQLdb
+import _mysql
 import threading
 import time
+import json
+
+def load_sql(queries_file):
+  return json.load(queries_file)
 
 class MysqlDB():
-  def __init__(self, host, database, user, password):
+  def __init__(self, host, database, user, password, queries_file):
     self.__db = MySQLdb.connect(host=host, user=user, passwd=password, db=database)
     self.__threadlocal = threading.local()
+    self.__sql= load_sql(queries_file)
     pass
   
   def open_connection(self):
@@ -240,5 +246,4 @@ class MysqlDB():
   def vacuum(self):
     self.__conn.execute('VACUUM')
   
-  
-
+ 
