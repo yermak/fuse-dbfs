@@ -1,32 +1,37 @@
 {
 "create_tree":"CREATE TABLE tree (id BIGINT PRIMARY KEY AUTO_INCREMENT, parent_id BIGINT, name BIGINT NOT NULL, inode BIGINT NOT NULL, UNIQUE (parent_id, name))",
 "create_strings": "CREATE TABLE strings (id INTEGER PRIMARY KEY AUTO_INCREMENT, string TEXT NOT NULL)",
-"create_inodes":"CREATE TABLE inodes (inode BIGINT PRIMARY KEY AUTO_INCREMENT, nlinks INTEGER NOT NULL, mode INTEGER NOT NULL, uid INTEGER, gid INTEGER, rdev INTEGER, size INTEGER, atime INTEGER, mtime INTEGER, ctime INTEGER)",
-"create_links":"CREATE TABLE links (inode BIGINT UNIQUE, target TEXT NOT NULL)",
+"create_inodes":"CREATE TABLE inodes ( inode bigint UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT, nlinks smallint unsigned NOT NULL, mode smallint unsigned NOT NULL, uid smallint unsigned NOT NULL, gid smallint unsigned NOT NULL, rdev int unsigned NOT NULL, size int unsigned NOT NULL, atime int NOT NULL, mtime int NOT NULL, ctime int NOT NULL)",
+"create_links":"CREATE TABLE links (inode BIGINT NOT NULL UNIQUE, target TEXT NOT NULL)",
 "create_hashes":"CREATE TABLE hashes (id BIGINT PRIMARY KEY AUTO_INCREMENT, hash CHAR(255) UNIQUE)", 
 "create_indices":"CREATE TABLE indices (inode BIGINT, hash_id BIGINT, block_nr INTEGER, PRIMARY KEY (inode, hash_id, block_nr))",
 "create_options": "CREATE TABLE options (name VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)",
 
-"insert_string_root" : "INSERT INTO strings (string) VALUES ('')",
-"insert_inode" : "INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (%(nlinks)s, %(mode)s, %(uid)s, %(gid)s, %(rdev)s, %(size)s, %(time)s, %(time)s, %(time)s)",
-
 
 "insert_tree_item" : "INSERT INTO tree (parent_id, name, inode) VALUES (%(parent_id)s, %(string_id)s, %(inode_id)s)",
+"insert_inode" : "INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (%(nlinks)s, %(mode)s, %(uid)s, %(gid)s, %(rdev)s, %(size)s, %(time)s, %(time)s, %(time)s)",
+"insert_hash": "INSERT INTO hashes (hash) VALUES (%(hash)s)",
+"insert_link" : "INSERT INTO links (inode, target) VALUES (%(inode)s, %(target)s)",
+"insert_index": "INSERT INTO indices (inode, hash_id, block_nr) VALUES (%(inode)s, %(hash_id)s, %(block_nr)s)",
+"insert_string": "INSERT INTO strings (string) VALUES (%(string)s)",
 
-"update_inode_mode": "UPDATE inodes SET mode = %(mode)s WHERE inode = %(inode)s",
-"update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
-"delete_tree_item": "DELETE FROM tree WHERE id = %(id)s",
-"dec_inode_nlinks": "UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = %(inode)s",
-"inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
-"update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
 
 "query_nodes_names": "SELECT t.inode, s.string FROM tree t, strings s WHERE t.parent_id = %(node_id)s AND t.name = s.id",
 "query_options": "SELECT name, value FROM options",
 "query_hash_id": "SELECT id FROM hashes WHERE hash = %(hash)s", 
+"query_string_id": "SELECT id FROM strings WHERE string = %(string)s",
+"query_link_target": "SELECT target FROM links WHERE inode = %(inode)s",
+"query_inode_mode_uid_gid": "SELECT mode, uid, gid FROM inodes WHERE inode = %(inode)s"
 
-"insert_hash": "INSERT INTO hashes (hash) VALUES (%(hash)s)",
-"insert_link" : "INSERT INTO links (inode, target) VALUES (%(inode)s, %(target)s)",
-"insert_index": "INSERT INTO indices (inode, hash_id, block_nr) VALUES (%(inode)s, %(hash_id)s, %(block_nr)s)"
+"update_inode_mode": "UPDATE inodes SET mode = %(mode)s WHERE inode = %(inode)s",
+"update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
+"dec_inode_nlinks": "UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = %(inode)s",
+"inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
+"update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
+
+"delete_tree_item": "DELETE FROM tree WHERE id = %(id)s"
+
+
 
 
 

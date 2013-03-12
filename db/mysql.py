@@ -4,7 +4,7 @@ Created on 26.02.2013
 @author: YErmak
 '''
 import MySQLdb
-`import threading
+import threading
 import time
 import json
 import logging
@@ -70,7 +70,7 @@ class MysqlDb():
 #      self.logger.debug('Prepared query: %s',  query.format(kwargs))
     if not limit:
       return self.conn().execute(query, kwargs).fetchall()
-    elif limit=1:
+    elif limit==1:
       return self.conn().execute(query, kwargs).fetchone()
     else:
       return self.conn().execute(query, kwargs).fetchall()[0:limit]
@@ -86,7 +86,7 @@ class MysqlDb():
     self.execute_named_stmt('create_indices')
     self.execute_named_stmt('create_options')
     
-    string_id = self.execute_named_stmt('insert_string_root')
+    string_id = self.execute_named_stmt('insert_string', string='')
     inode_id = self.execute_named_stmt('insert_inode', nlinks=2, mode=root_mode, uid=uid, gid=gid,rdev=0, size=1024*4, time=t)
     self.execute_named_stmt('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
     
@@ -118,11 +118,11 @@ class MysqlDb():
 
   
   def get_target(self, inode):
-    return str(self.__conn.execute('SELECT target FROM links WHERE inode = ?', (inode)).fetchone()[0])
+    return str(self.execute_named_query('query_link_target', limit=1, inode=inode)[0])
 
   
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
-    inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t, time=t, time=t))
+    inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t, time=t, time=t)
     string_id = self.get_node_by_name(name)
     node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode=inode)
     return node_id, inode
@@ -130,17 +130,15 @@ class MysqlDb():
   
   def get_node_by_name(self, string):
     start_time = time.time()
-    args = (string,)
-    result = self.__conn.execute('SELECT id FROM strings WHERE value = ?', args).fetchone()
+    result = self.execute_named_query('query_string_id', limit=1, string=string)[0]
     if not result:
-      self.__conn.execute('INSERT INTO strings (id, value) VALUES (NULL, ?)', args)
-      result = self.__conn.execute('SELECT last_insert_rowid()').fetchone()
+      result = self.execute_named_stmt('insert_string', string=string)
     self.time_spent_interning += time.time() - start_time
-    return int(result[0])
+    return int(result)
 
   # Get the path's mode, owner and group through the inode.
   def get_mode_uid_gid(self, inode):
-    result = self.__conn.execute('SELECT mode, uid, gid FROM inodes WHERE inode = ?', (inode,)).fetchone()
+    result = self.execute_named_query('query_inode_mode_uid_gid', limit=1, inode=inode)
     return result['mode'], result['uid'], result['gid']
 
   
