@@ -4,8 +4,7 @@ Created on 26.02.2013
 @author: YErmak
 '''
 import MySQLdb
-import _mysql
-import threading
+`import threading
 import time
 import json
 import logging
@@ -44,9 +43,9 @@ class MysqlDb():
     self.__threadlocal.cursor.close()
     self.__threadlocal.cursor = None
         
-  def execute_named_query(self, query_name, **kwargs):
+  def execute_named_stmt(self, query_name, **kwargs):
     query = self.sql(query_name)
-    self.logger.debug('Executing query: %s' , query)
+    self.logger.debug('Executing stmt: %s' , query)
     if kwargs:
       self.logger.debug('With parameters:')
       for key in kwargs:
@@ -58,45 +57,61 @@ class MysqlDb():
     if last_id:
       self.logger.debug('Inserted id: %s', last_id)
       return last_id
+
+
+  def execute_named_query(self, query_name, limit=0, **kwargs):
+    query = self.sql(query_name)
+    self.logger.debug('Executing query: %s' , query)
+    if kwargs:
+      self.logger.debug('With parameters:')
+      for key in kwargs:
+        self.logger.debug('\t%s: %s' %(key, kwargs[key]))
+#    if kwargs:
+#      self.logger.debug('Prepared query: %s',  query.format(kwargs))
+    if not limit:
+      return self.conn().execute(query, kwargs).fetchall()
+    elif limit=1:
+      return self.conn().execute(query, kwargs).fetchone()
+    else:
+      return self.conn().execute(query, kwargs).fetchall()[0:limit]
+
   
   def initialize(self, uid, gid, root_mode):
     t = time.time()
-    self.execute_named_query('create_tree')
-    self.execute_named_query('create_strings')
-    self.execute_named_query('create_inodes')
-    self.execute_named_query('create_links')
-    self.execute_named_query('create_hashes')
-    self.execute_named_query('create_indices')
-    self.execute_named_query('create_options')
+    self.execute_named_stmt('create_tree')
+    self.execute_named_stmt('create_strings')
+    self.execute_named_stmt('create_inodes')
+    self.execute_named_stmt('create_links')
+    self.execute_named_stmt('create_hashes')
+    self.execute_named_stmt('create_indices')
+    self.execute_named_stmt('create_options')
     
-    string_id = self.execute_named_query('insert_string_root')
-    inode_id = self.execute_named_query('insert_inode_root', mode=root_mode, uid=uid, gid=gid, time=t)
-    self.execute_named_query('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
+    string_id = self.execute_named_stmt('insert_string_root')
+    inode_id = self.execute_named_stmt('insert_inode_root', mode=root_mode, uid=uid, gid=gid, time=t)
+    self.execute_named_stmt('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
     
   
   def update_mode(self, mode, inode):
-    self.execute_named_query('update_inode_mode', mode=mode, inode=inode)
+    self.execute_named_stmt('update_inode_mode', mode=mode, inode=inode)
   
 
   def update_uid_gid(self, uid, gid, inode):
-    self.execute_named_query('update_inode_uid_gid', uid=uid, gid=gid, inode=inode)
+    self.execute_named_stmt('update_inode_uid_gid', uid=uid, gid=gid, inode=inode)
 
     
   def add_leaf(self, link_parent_id, string_id, target_ino):
-    return self.execute_named_query('insert_tree_item', parent_id=link_parent_id,  string_id=string_id, inode_id=target_ino)
+    return self.execute_named_stmt('insert_tree_item', parent_id=link_parent_id,  string_id=string_id, inode_id=target_ino)
 
   def remove_leaf(self, node_id, inode):
-    self.__conn.execute('DELETE FROM tree WHERE id = ?', (node_id,))
-    self.__conn.execute('UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = ?', (inode,))
-
+    self.execute_named_stmt('delete_tree_item', id=node_id)
+    self.execute_named_stmt('dec_inode_nlinks', inode=inode)
   
   def inc_links(self, target_ino):
-    self.__conn.execute('UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = ?', (target_ino,))
-
+    self.execute_named_stmt('inc_inode_nlinks', inode=target_ino)
 
   def dec_links(self, parent_ino):
-    self.__conn.execute('UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = ?', (parent_ino,))
-
+    self.execute_named_stmt('dec_inode_nlinks', inode=parent_ino)
+    
   
   def list_childs(self,node_id):
     return self.__conn.execute('SELECT t.inode, s.value FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id', (node_id,)).fetchall()

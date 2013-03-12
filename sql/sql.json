@@ -12,7 +12,9 @@
 "insert_tree_item" : "INSERT INTO tree (parent_id, name, inode) VALUES (%(parent_id)s, %(string_id)s, %(inode_id)s)",
 
 "update_inode_mode": "UPDATE inodes SET mode = %(mode)s WHERE inode = %(inode)s",
-"update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s"
-
+"update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
+"delete_tree_item": "DELETE FROM tree WHERE id = %(id)s",
+"dec_inode_nlinks": "UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = %(inode)s",
+"inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s"
 
 }
