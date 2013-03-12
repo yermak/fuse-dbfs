@@ -114,7 +114,7 @@ class MysqlDb():
     
   
   def list_childs(self,node_id):
-    return self.__conn.execute('SELECT t.inode, s.value FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id', (node_id,)).fetchall()
+    return self.execute_named_query('query_nodes_names', node_id = node_id)
 
   
   def get_target(self, inode):
@@ -148,24 +148,22 @@ class MysqlDb():
 
   
   def get_options(self):
-    return self.__conn.execute('SELECT name, value FROM options')
+    return self.execute_named_query('query_options')
 
   
   def get_by_hash(self, encoded_digest):
-    return self.__conn.execute('SELECT id FROM hashes WHERE hash = ?', (encoded_digest,)).fetchone()
+    return self.execute_named_query('query_hash_id', limit=1, hash= encoded_digest)
 
   
   def add_hash_to_index(self, inode, hash_id, block_nr):
-    self.__conn.execute('INSERT INTO indices (inode, hash_id, block_nr) VALUES (?, ?, ?)', (inode, hash_id, block_nr))
+    self.execute_named_stmt('insert_index', inode=inode, hash_id=hash_id, block_nr=block_nr)
 
   
   def add_hash(self, encoded_digest):
-    self.__conn.execute('INSERT INTO hashes (id, hash) VALUES (NULL, ?)', (encoded_digest,))
-    return self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-
+    return self.execute_named_stmt('insert_hash', hash = encoded_digest)
   
   def add_link(self, inode, target_path):
-    self.__conn.execute('INSERT INTO links (inode, target) VALUES (?, ?)', (inode, target_path))
+    self.__conn.execute('insert_link', inode=inode, target=target_path)
 
   
   def update_inode_size(self, inode, size):
@@ -182,7 +180,7 @@ class MysqlDb():
 
   
   def update_time(self, inode, atime, mtime):
-    self.__conn.execute('UPDATE inodes SET atime = ?, mtime = ? WHERE inode = ?', (atime, mtime, inode))
+    self.execute_named_stmt('update_inode_time', inode=inode, atime=atime, mtime=mtime)
 
   
   def clean_strings(self):

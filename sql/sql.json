@@ -15,6 +15,17 @@
 "update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
 "delete_tree_item": "DELETE FROM tree WHERE id = %(id)s",
 "dec_inode_nlinks": "UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = %(inode)s",
-"inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s"
+"inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
+"update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
+
+"query_nodes_names": "SELECT t.inode, s.string FROM tree t, strings s WHERE t.parent_id = %(node_id)s AND t.name = s.id",
+"query_options": "SELECT name, value FROM options",
+"query_hash_id": "SELECT id FROM hashes WHERE hash = %(hash)s", 
+
+"insert_hash": "INSERT INTO hashes (hash) VALUES (%(hash)s)",
+"insert_link" : "INSERT INTO links (inode, target) VALUES (%(inode)s, %(target)s)",
+"insert_index": "INSERT INTO indices (inode, hash_id, block_nr) VALUES (%(inode)s, %(hash_id)s, %(block_nr)s)"
+
+
 
 }
