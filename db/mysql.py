@@ -87,7 +87,7 @@ class MysqlDb():
     self.execute_named_stmt('create_options')
     
     string_id = self.execute_named_stmt('insert_string_root')
-    inode_id = self.execute_named_stmt('insert_inode_root', mode=root_mode, uid=uid, gid=gid, time=t)
+    inode_id = self.execute_named_stmt('insert_inode', nlinks=2, mode=root_mode, uid=uid, gid=gid,rdev=0, size=1024*4, time=t)
     self.execute_named_stmt('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
     
   
@@ -122,12 +122,9 @@ class MysqlDb():
 
   
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
-    self.__conn.execute('INSERT INTO inodes (nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                       (nlinks, mode, uid, gid, rdev, size, t, t, t))
-    inode = self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t, time=t, time=t))
     string_id = self.get_node_by_name(name)
-    self.__conn.execute('INSERT INTO tree (parent_id, name, inode) VALUES (?, ?, ?)', (parent_id, string_id, inode))
-    node_id = self.__conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode=inode)
     return node_id, inode
 
   
