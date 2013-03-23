@@ -11,38 +11,34 @@ import logging
 import sys
 
 
-
 class MysqlDb():
   def __init__(self, host, database, user, password):
     self.logger = logging.getLogger('fuse-dbfs.mysql')
     self.logger.setLevel(logging.DEBUG)
     self.logger.addHandler(logging.StreamHandler(sys.stdout))
-
     self.__db = MySQLdb.connect(host=host, user=user, passwd=password, db=database)
     self.__threadlocal = threading.local()
     self.__sql = self.load_sql();
-    pass
-  
+
   def sql(self, name):
     return self.__sql[name]
-  
+
   def load_sql(self):
     with open('sql/sql.json') as data_file:    
       data = json.load(data_file)
     self.logger.debug(data)
     return data
-    
-    
+
   def open_connection(self):
     self.__threadlocal.cursor=self.__db.cursor()
-  
+
   def conn(self):
     return self.__threadlocal.cursor
-    
+
   def close(self):
     self.__threadlocal.cursor.close()
     self.__threadlocal.cursor = None
-        
+
   def execute_named_stmt(self, query_name, **kwargs):
     query = self.sql(query_name)
     self.logger.debug('Executing stmt: %s' , query)
@@ -57,7 +53,7 @@ class MysqlDb():
     if last_id:
       self.logger.debug('Inserted id: %s', last_id)
       return last_id
-
+    return self.conn().rowcount
 
   def execute_named_query(self, query_name, limit=0, **kwargs):
     query = self.sql(query_name)
@@ -75,7 +71,6 @@ class MysqlDb():
     else:
       return self.conn().execute(query, kwargs).fetchall()[0:limit]
 
-  
   def initialize(self, uid, gid, root_mode):
     t = time.time()
     self.execute_named_stmt('create_tree')
@@ -85,20 +80,16 @@ class MysqlDb():
     self.execute_named_stmt('create_hashes')
     self.execute_named_stmt('create_indices')
     self.execute_named_stmt('create_options')
-    
     string_id = self.execute_named_stmt('insert_string', string='')
     inode_id = self.execute_named_stmt('insert_inode', nlinks=2, mode=root_mode, uid=uid, gid=gid,rdev=0, size=1024*4, time=t)
     self.execute_named_stmt('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
-    
-  
+
   def update_mode(self, mode, inode):
     self.execute_named_stmt('update_inode_mode', mode=mode, inode=inode)
-  
 
   def update_uid_gid(self, uid, gid, inode):
     self.execute_named_stmt('update_inode_uid_gid', uid=uid, gid=gid, inode=inode)
 
-    
   def add_leaf(self, link_parent_id, string_id, target_ino):
     return self.execute_named_stmt('insert_tree_item', parent_id=link_parent_id,  string_id=string_id, inode_id=target_ino)
 
@@ -111,23 +102,19 @@ class MysqlDb():
 
   def dec_links(self, parent_ino):
     self.execute_named_stmt('dec_inode_nlinks', inode=parent_ino)
-    
-  
+
   def list_childs(self,node_id):
     return self.execute_named_query('query_nodes_names', node_id = node_id)
 
-  
   def get_target(self, inode):
     return str(self.execute_named_query('query_link_target', limit=1, inode=inode)[0])
 
-  
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
     inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t, time=t, time=t)
     string_id = self.get_node_by_name(name)
     node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode=inode)
     return node_id, inode
 
-  
   def get_node_by_name(self, string):
     start_time = time.time()
     result = self.execute_named_query('query_string_id', limit=1, string=string)[0]
@@ -141,97 +128,67 @@ class MysqlDb():
     result = self.execute_named_query('query_inode_mode_uid_gid', limit=1, inode=inode)
     return result['mode'], result['uid'], result['gid']
 
-  
   def get_options(self):
     return self.execute_named_query('query_options')
 
-  
   def get_by_hash(self, encoded_digest):
     return self.execute_named_query('query_hash_id', limit=1, hash= encoded_digest)
 
-  
   def add_hash_to_index(self, inode, hash_id, block_nr):
     self.execute_named_stmt('insert_index', inode=inode, hash_id=hash_id, block_nr=block_nr)
 
-  
   def add_hash(self, encoded_digest):
     return self.execute_named_stmt('insert_hash', hash = encoded_digest)
-  
+
   def add_link(self, inode, target_path):
-    self.__conn.execute('insert_link', inode=inode, target=target_path)
+    self.execute_named_stmt('insert_link', inode=inode, target=target_path)
 
-  
   def update_inode_size(self, inode, size):
-    self.__conn.execute('UPDATE inodes SET size = ?, mtime=? WHERE inode = ?', (size, time.time(), inode))
+    self.execute_named_stmt('update_inode_size', size= size, mtime=time.time(), inode=inode)
 
-  
   def count_of_children(self, inode):
-    query = 'SELECT COUNT(t.id) FROM tree t, inodes i WHERE t.parent_id = ? AND i.inode = t.inode AND i.nlinks > 0'
-    self.__conn.execute(query, inode).fetchone()[0]
+    return self.execute_named_query('query_inode_children_count', limit = 1, parent_id=inode)
 
-  
   def clear_index(self, inode, block_nr = -1):
-    self.__conn.execute('DELETE FROM indices WHERE inode = ? and block_nr > ?', (inode, block_nr))
+    self.execute_named_stmt('delete_indices_by_node_and_block_nr', inode=inode, block_nr=block_nr)
 
-  
   def update_time(self, inode, atime, mtime):
     self.execute_named_stmt('update_inode_time', inode=inode, atime=atime, mtime=mtime)
 
-  
   def clean_strings(self):
-    return self.__conn.execute('DELETE FROM strings WHERE id NOT IN (SELECT name FROM tree)').rowcount
+    return self.execute_named_stmt('delete_strings')
 
-  
   def clean_inodes(self):
-    return self.__conn.execute('DELETE FROM inodes WHERE nlinks = 0').rowcount
+    return self.execute_named_stmt('delete_inodes')
 
-  
   def clean_indices(self):
-    return self.__conn.execute('DELETE FROM indices WHERE inode NOT IN (SELECT inode FROM inodes)').rowcount
+    return self.execute_named_stmt('delete_indices')
 
-  
   def find_unused_hashes(self):
-    return self.__conn.execute('SELECT hash FROM hashes WHERE id NOT IN (SELECT hash_id FROM indices)')
+    return self.execute_named_query('query_hashes_unused')
 
-  
   def clean_hashes(self):
-    return self.__conn.execute('DELETE FROM hashes WHERE id NOT IN (SELECT hash_id FROM indices)').rowcount
+    return self.execute_named_stmt('delete_hashes')
 
-  
   def list_hash(self, inode):
-    query = 'SELECT h.hash FROM hashes h, indices i WHERE i.inode = ? AND h.id = i.hash_id  ORDER BY i.block_nr ASC'
-    return self.__conn.execute(query, (inode,)).fetchall()
+    return self.execute_named_query('query_hashes_by_inode',inode=inode)
 
-  
   def get_used_space(self):
-    return self.__conn.execute('SELECT SUM(inodes.size) FROM tree, inodes WHERE tree.inode = inodes.inode').fetchone()[0]
+    return self.execute_named_query('query_used_space', limit=1)
 
-  
   def get_disk_usage(self):
-    return self.__conn.execute('PRAGMA page_size').fetchone()[0] * self.__conn.execute('PRAGMA page_count').fetchone()[0]
+    return 0
+    #TODO
+    #return self.__conn.execute('PRAGMA page_size').fetchone()[0] * self.__conn.execute('PRAGMA page_count').fetchone()[0]
 
-  
   def gett_attr(self, inode):
-    query = 'SELECT inode, nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime FROM inodes WHERE inode = ?'
-    return self.__conn.execute(query, (inode,)).fetchone()
+    return self.execute_named_query('query_inode_attr', limit=1, inode=inode)
 
-  
   def get_node_id_inode_by_parrent_and_name(self, parent_id, name):
-    query = 'SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = ? AND t.name = s.id AND s.value = ? LIMIT 1'
-    return self.__conn.execute(query, (parent_id, name)).fetchone()
+    return self.execute_named_query('query_inode_by_parent_and_name', limit=1, parent_id=parent_id, string=name)
 
-  
   def get_top_blocks(self):
-    query = """
-      SELECT * FROM (
-        SELECT *, COUNT(*) AS "count" FROM indices
-        GROUP BY hash_id ORDER BY "count" DESC
-      ), hashes WHERE
-        "count" > 1 AND
-        hash_id = hashes.id
-        LIMIT 10 """
-    return self.__conn.execute(query)
-
+    return self.execute_named_query('query_top_blocks')
 
   def __open_datastore(self, use_gdbm):
     # gdbm is preferred over other dbm implementations because it supports fast
@@ -252,11 +209,9 @@ class MysqlDb():
   def get_data(self, digest):
     return None
 
-  
   def set_data(self, digest, new_block):
     pass
 
-  
   def remove_data(self, digest):
     pass
     
@@ -267,7 +222,6 @@ class MysqlDb():
     if hasattr(self.__blocks, fun):
       getattr(self.__blocks, fun)()
 
-   
   def commit(self, nested=False):
     if self.use_transactions and not nested:
       self.__conn.commit()
@@ -279,5 +233,3 @@ class MysqlDb():
  
   def vacuum(self):
     self.__conn.execute('VACUUM')
-  
- 

@@ -21,14 +21,28 @@
 "query_hash_id": "SELECT id FROM hashes WHERE hash = %(hash)s", 
 "query_string_id": "SELECT id FROM strings WHERE string = %(string)s",
 "query_link_target": "SELECT target FROM links WHERE inode = %(inode)s",
-"query_inode_mode_uid_gid": "SELECT mode, uid, gid FROM inodes WHERE inode = %(inode)s"
+"query_inode_mode_uid_gid": "SELECT mode, uid, gid FROM inodes WHERE inode = %(inode)s",
+"query_inode_children_count": "SELECT COUNT(t.id) FROM tree t, inodes i WHERE t.parent_id = %(parent_id) AND i.inode = t.inode AND i.nlinks > 0",
+"query_hashes_unused": "SELECT hash FROM hashes WHERE id NOT IN (SELECT hash_id FROM indices)",
+"query_hashes_by_inode": "SELECT h.hash FROM hashes h, indices i WHERE i.inode = %(inode) AND h.id=i.hash_id  ORDER BY i.block_nr ASC",
+"query_used_space":"SELECT SUM(inodes.size) FROM tree, inodes WHERE tree.inode = inodes.inode",
+"query_inode_attr": "SELECT inode, nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime FROM inodes WHERE inode = %(inode)",
+"query_inode_by_parent_and_name": "SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = %(parent_id) AND t.name = s.id AND s.string = %(string) LIMIT 1",
+"query_top_blocks": "SELECT * FROM ( SELECT *, COUNT(*) AS 'count' FROM indices GROUP BY hash_id ORDER BY 'count' DESC ), hashes WHERE 'count' > 1 AND hash_id = hashes.id LIMIT 10",
 
 "update_inode_mode": "UPDATE inodes SET mode = %(mode)s WHERE inode = %(inode)s",
 "update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
 "dec_inode_nlinks": "UPDATE inodes SET nlinks = nlinks - 1 WHERE inode = %(inode)s",
 "inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
 "update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
+"update_inode_size": "UPDATE inodes SET size = %(size), mtime=%(mtime) WHERE inode = %(inode)",
 
+
+"delete_indices_by_node_and_block_nr": "DELETE FROM indices WHERE inode=%(inode) and block_nr > %(block_nr) ",
+"delete_strings":"DELETE FROM strings WHERE id NOT IN (SELECT name FROM tree)",
+"delete_inodes":"DELETE FROM inodes WHERE nlinks = 0",
+"delete_indices":"DELETE FROM indices WHERE inode NOT IN (SELECT inode FROM inodes)",
+"delete_hashes" :"DELETE FROM hashes WHERE id NOT IN (SELECT hash_id FROM indices)",
 "delete_tree_item": "DELETE FROM tree WHERE id = %(id)s"
 
 
