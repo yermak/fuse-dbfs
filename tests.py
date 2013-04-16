@@ -6,6 +6,8 @@ Created on Feb 28, 2013
 import unittest
 import json
 from dbfs import Dbfs
+import errno
+import os
 
 class Test(unittest.TestCase):
 
@@ -42,8 +44,89 @@ class Test(unittest.TestCase):
     self.assertEqual(0, access, 'Access failed')
     
     
+  def test_chmod(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},"mod_dir", 0777)
+    self.assertEqual(0, mkdir, 'mkdir failed')
+    chmod = self.fs.chmod('mod_dir', 0000)
+    self.assertEqual(0, chmod, 'Chmod failed')
+    
+    access = self.fs.access({'uid':1, 'gid':2}, 'mod_dir', os.W_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')  
+    
+    access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.R_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    
+    access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.X_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    
+    access = self.fs.access({'uid':3, 'gid':3}, 'mod_dir', os.X_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    
+    
+    chmod = self.fs.chmod('mod_dir', 0751)
+    self.assertEqual(0, chmod, 'Chmod failed')
+
+    access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.R_OK)
+    self.assertEqual(0, access, 'Access denied')
+
+    
+    access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.W_OK)
+    self.assertEqual(0, access, 'Access denied')  
+    
+    
+    access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access denied')
+   
+  
+    access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.R_OK)
+    self.assertEqual(0, access, 'Access denied')
+   
+    access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access denied')
+      
+    access = self.fs.access({'uid':3, 'gid':3}, 'mod_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access denied')
     
 
+  def test_chown(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},"own_dir", 0751)
+    self.assertEqual(0, mkdir, 'mkdir failed')
+    access = self.fs.access({'uid':1, 'gid':4}, 'own_dir', os.W_OK)
+    self.assertEqual(0, access, 'Access denied') 
+    access = self.fs.access({'uid':3, 'gid':2}, 'own_dir', os.R_OK)
+    self.assertEqual(0, access, 'Access denied') 
+    access = self.fs.access({'uid':5, 'gid':6}, 'own_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access denied') 
+    
+    
+    
+    chown = self.fs.chown('own_dir', 3, 4)
+    self.assertEqual(0, chown, 'Chown failed')
+    
+    access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access denied') 
+      
+    access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.R_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    
+    access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.W_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    
+    access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.R_OK)
+    self.assertEqual(0, access, 'Access violation')
+    
+    access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.W_OK)
+    self.assertEqual(0, access, 'Access violation')
+    
+    access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access violation')
+    
+    access = self.fs.access({'uid':1, 'gid':4}, 'own_dir', os.X_OK)
+    self.assertEqual(0, access, 'Access violation')
+    
+  
+  
+  
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

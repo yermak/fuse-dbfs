@@ -92,9 +92,10 @@ class Dbfs:
     try:
       self.__log_call('access', 'access(%r, %o)', path, flags)
       inode = self.__path2keys(path)[1]
-      if flags != os.F_OK and not self.__access(ctx, inode, flags):
+      if flags == os.F_OK or self.__access(ctx, inode, flags):
+        return 0
+      else:
         return -errno.EACCES
-      return 0
     except Exception, e:
       return self.__except_to_status('access', e, errno.ENOENT)
 

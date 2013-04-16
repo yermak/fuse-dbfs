@@ -128,7 +128,7 @@ class MysqlDb():
   # Get the path's mode, owner and group through the inode.
   def get_mode_uid_gid(self, inode):
     result = self.execute_named_query('query_inode_mode_uid_gid', limit=1, inode=inode)
-    return result['mode'], result['uid'], result['gid']
+    return result[0], result[1], result[2]
 
   def get_options(self):
     return self.execute_named_query('query_options')
