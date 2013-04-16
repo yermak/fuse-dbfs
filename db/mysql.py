@@ -149,7 +149,7 @@ class MysqlDb():
     self.execute_named_stmt('update_inode_size', size= size, mtime=time.time(), inode=inode)
 
   def count_of_children(self, inode):
-    return self.execute_named_query('query_inode_children_count', limit = 1, parent_id=inode)
+    return self.execute_named_query('query_inode_children_count', limit = 1, parent_id=inode)[0]
 
   def clear_index(self, inode, block_nr = -1):
     self.execute_named_stmt('delete_indices_by_node_and_block_nr', inode=inode, block_nr=block_nr)

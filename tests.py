@@ -87,7 +87,11 @@ class Test(unittest.TestCase):
     access = self.fs.access({'uid':3, 'gid':3}, 'mod_dir', os.X_OK)
     self.assertEqual(0, access, 'Access denied')
     
-
+    self.fs.read_only = True
+    access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.W_OK)
+    self.assertEqual(-errno.EACCES, access, 'Access denied')  
+    
+    
   def test_chown(self):
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"own_dir", 0751)
     self.assertEqual(0, mkdir, 'mkdir failed')
@@ -97,7 +101,6 @@ class Test(unittest.TestCase):
     self.assertEqual(0, access, 'Access denied') 
     access = self.fs.access({'uid':5, 'gid':6}, 'own_dir', os.X_OK)
     self.assertEqual(0, access, 'Access denied') 
-    
     
     
     chown = self.fs.chown('own_dir', 3, 4)
@@ -124,7 +127,12 @@ class Test(unittest.TestCase):
     access = self.fs.access({'uid':1, 'gid':4}, 'own_dir', os.X_OK)
     self.assertEqual(0, access, 'Access violation')
     
-  
+  def test_rmdir(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir', 0777)
+    self.assertEqual(0, mkdir, 'mkdir failed')
+    
+    rmdir = self.fs.rmdir('rm_dir')
+    self.assertEqual(1, rmdir, 'rmdir failed')
   
   
 if __name__ == "__main__":

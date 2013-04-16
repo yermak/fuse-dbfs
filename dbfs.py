@@ -78,8 +78,7 @@ class Dbfs:
       self.__log_call('mkdir', 'mkdir(%r, %o)', path, mode)
       if self.read_only: return -errno.EROFS
       self.db.open_connection()
-      tmp = mode | stat.S_IFDIR 
-      inode, parent_ino = self.__insert(ctx, path, tmp, 1024, 0)
+      inode, parent_ino = self.__insert(ctx, path, mode | stat.S_IFDIR, 4*1024)
       self.db.inc_links(parent_ino);
       self.db.commit()
       self.__gc_hook()
