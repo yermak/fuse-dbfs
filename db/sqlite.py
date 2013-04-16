@@ -295,7 +295,7 @@ class Db:
     if self.use_transactions and not nested:
       self.__conn.commit()
   
-  def rollback_(self, nested=False):
+  def rollback(self, nested=False):
     if self.use_transactions and not nested:
       self.logger.info('Rolling back changes')
       self.__conn.rollback()

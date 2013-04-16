@@ -5,30 +5,42 @@ Created on Feb 28, 2013
 '''
 import unittest
 import json
-import db.mysql
+from dbfs import Dbfs
 
 class Test(unittest.TestCase):
 
+  def setUp(self):
+    self.fs = Dbfs();
+    self.fs.db.open_connection()
 
-    def setUp(self):
-      pass
-
-
-    def tearDown(self):
-      pass
-
-
-    def testName(self):
-      pass
-      
-    def testJson(self):
-        sql = db.mysql.load_sql('sql/query.json')
-        self.assertEqual(sql, '1')
-      
+    self.fs.db.conn().execute('drop table if exists options')
+    self.fs.db.conn().execute('drop table if exists indices')
+    self.fs.db.conn().execute('drop table if exists hashes')
+    self.fs.db.conn().execute('drop table if exists links')
+    self.fs.db.conn().execute('drop table if exists inodes')
+    self.fs.db.conn().execute('drop table if exists tree')
+    self.fs.db.conn().execute('drop table if exists strings')
   
-    def main(self):
-      self.testJson()
+    self.fs.db.initialize(1, 2, 0)
+    self.fs.db.commit()
 
+  def tearDown(self):
+    pass
+    
+  def test_mkdir_access_normal(self):
+    self.fs.mkdir({'uid':1, 'gid':2},'first_dir', 777)
+    access = self.fs.access({'uid':1, 'gid':2}, 'first_dir', 0)
+    self.assertEqual(0, access, 'Access failed')
+    
+    
+  def test_mkdir_access_nested(self):    
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},"parent_dir/child_dir", 777)
+    self.assertEqual(0, mkdir, 'mkdir failed')
+    access = self.fs.access({'uid':1, 'gid':2}, "parent_dir/child_dir", 0)
+    self.assertEqual(0, access, 'Access failed')
+    
+    
+    
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

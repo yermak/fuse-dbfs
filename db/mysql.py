@@ -67,7 +67,7 @@ class MysqlDb():
     if not limit:
       return self.conn().execute(query, kwargs).fetchall()
     elif limit==1:
-      return self.conn().execute(query, kwargs).fetchone()
+      return self.conn().execute(query, kwargs)
     else:
       return self.conn().execute(query, kwargs).fetchall()[0:limit]
 
@@ -110,17 +110,15 @@ class MysqlDb():
     return str(self.execute_named_query('query_link_target', limit=1, inode=inode)[0])
 
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
-    inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t, time=t, time=t)
+    inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t)
     string_id = self.get_node_by_name(name)
-    node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode=inode)
+    node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode_id=inode)
     return node_id, inode
 
   def get_node_by_name(self, string):
-    start_time = time.time()
-    result = self.execute_named_query('query_string_id', limit=1, string=string)[0]
+    result = self.execute_named_query('query_string_id', limit=1, string=string)
     if not result:
       result = self.execute_named_stmt('insert_string', string=string)
-    self.time_spent_interning += time.time() - start_time
     return int(result)
 
   # Get the path's mode, owner and group through the inode.
@@ -185,7 +183,7 @@ class MysqlDb():
     return self.execute_named_query('query_inode_attr', limit=1, inode=inode)
 
   def get_node_id_inode_by_parrent_and_name(self, parent_id, name):
-    return self.execute_named_query('query_inode_by_parent_and_name', limit=1, parent_id=parent_id, string=name)
+    return self.execute_named_query('query_inode_by_parent_and_name', limit=1, parent_id=parent_id, name=name)
 
   def get_top_blocks(self):
     return self.execute_named_query('query_top_blocks')
@@ -223,13 +221,15 @@ class MysqlDb():
       getattr(self.__blocks, fun)()
 
   def commit(self, nested=False):
-    if self.use_transactions and not nested:
-      self.__conn.commit()
+    if not nested:
+      self.__db.commit()
+#      self.conn().commit()
   
-  def rollback_(self, nested=False):
-    if self.use_transactions and not nested:
+  def rollback(self, nested=False):
+    if not nested:
       self.logger.info('Rolling back changes')
-      self.__conn.rollback()
+      self.__db.rollback()
+#      self.conn().rollback()
  
   def vacuum(self):
     self.__conn.execute('VACUUM')
