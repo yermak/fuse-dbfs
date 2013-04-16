@@ -64,12 +64,16 @@ class MysqlDb():
         self.logger.debug('\t%s: %s' %(key, kwargs[key]))
 #    if kwargs:
 #      self.logger.debug('Prepared query: %s',  query.format(kwargs))
-    if not limit:
-      return self.conn().execute(query, kwargs).fetchall()
-    elif limit==1:
-      return self.conn().execute(query, kwargs)
+    count = self.conn().execute(query, kwargs)
+    if count == 0:
+      return None;
     else:
-      return self.conn().execute(query, kwargs).fetchall()[0:limit]
+      if limit==0:
+        return self.conn().fetchall()
+      elif limit==1:
+        return self.conn().fetchone()
+      else:
+        return self.conn().fetchall()[0:limit]
 
   def initialize(self, uid, gid, root_mode):
     t = time.time()

@@ -14,9 +14,10 @@ import stat
 import time
 import traceback
 
+
 # Local modules that are mostly useful for debugging.
 from my_formats import format_size, format_timespan
-#from get_memory_usage import get_memory_usage
+# from get_memory_usage import get_memory_usage
 #from db.sqlite import Db
 from db.mysql import MysqlDb
 
@@ -77,7 +78,8 @@ class Dbfs:
       self.__log_call('mkdir', 'mkdir(%r, %o)', path, mode)
       if self.read_only: return -errno.EROFS
       self.db.open_connection()
-      inode, parent_ino = self.__insert(ctx, path, mode | stat.S_IFDIR, 1024*4)
+      tmp = mode | stat.S_IFDIR 
+      inode, parent_ino = self.__insert(ctx, path, tmp, 1024, 0)
       self.db.inc_links(parent_ino);
       self.db.commit()
       self.__gc_hook()
@@ -594,7 +596,7 @@ class Dbfs:
     self.db.update_inode_size(inode, apparent_size)
     self.time_spent_writing_blocks += time.time() - start_time
 
-  def __insert(self, ctx, path, mode, size, rdev=0): # {{{3
+  def __insert(self, ctx, path, mode, size, rdev=0):
     parent, name = os.path.split(path)
     parent_id, parent_ino = self.__path2keys(parent)
     nlinks = mode & stat.S_IFDIR and 2 or 1
@@ -602,7 +604,7 @@ class Dbfs:
     uid = ctx['uid']
     gid = ctx['gid']
     node_id, inode = self.db.insert_node_to_tree(name, parent_id, nlinks, mode, uid, gid, rdev, size, t)
-    self.__cache_set(path, (node_id, inode))
+#     self.__cache_set(path, (node_id, inode))
     return inode, parent_ino
 
   def __remove(self, path, check_empty=False): # {{{3
@@ -660,16 +662,16 @@ class Dbfs:
       return node_id, inode
     parent_id = node_id
     for segment in self.__split_segments(path):
-      result = self.db.get_node_id_inode_by_parrent_and_name(parent_id, path)
+      result = self.db.get_node_id_inode_by_parrent_and_name(parent_id, segment)
       if result == None:
-        self.__cache_check_gc()
+#         self.__cache_check_gc()
         raise OSError, (errno.ENOENT, os.strerror(errno.ENOENT), path)
       node_id, inode = result
       parent_id = node_id
-    self.__cache_check_gc()
+#     self.__cache_check_gc()
     return node_id, inode
 
-  def __cache_set(self, key, value): # {{{3
+  def __cache_set(self, key, value):
     segments = self.__split_segments(key)
     last_segment = segments.pop(-1)
     node = self.cached_nodes

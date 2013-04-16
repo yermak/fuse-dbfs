@@ -27,13 +27,15 @@ class Test(unittest.TestCase):
   def tearDown(self):
     pass
     
+#  SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = %(parent_id) AND t.name = s.id AND s.string = %(name) LIMIT 1   
   def test_mkdir_access_normal(self):
-    self.fs.mkdir({'uid':1, 'gid':2},'first_dir', 777)
-    access = self.fs.access({'uid':1, 'gid':2}, 'first_dir', 0)
+    self.fs.mkdir({'uid':1, 'gid':2},'first', 777)
+    access = self.fs.access({'uid':1, 'gid':2}, 'first', 0)
     self.assertEqual(0, access, 'Access failed')
     
     
   def test_mkdir_access_nested(self):    
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},"parent_dir", 777)
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"parent_dir/child_dir", 777)
     self.assertEqual(0, mkdir, 'mkdir failed')
     access = self.fs.access({'uid':1, 'gid':2}, "parent_dir/child_dir", 0)
