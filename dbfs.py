@@ -886,20 +886,22 @@ class Dbfs:
       return buf
 
   def __except_to_status(self, method, exception, code=errno.ENOENT): # {{{3
+    if isinstance(exception, OSError):
+      result = -exception.errno
+    else:
+      result = -code
+    
     # Don't report ENOENT raised from getattr().
     if method != 'getattr' or code != errno.ENOENT:
       sys.stderr.write('%s\n' % ('-' * 50))
       sys.stderr.write("Caught exception in %s(): %s\n" % (method, exception))
       traceback.print_exc(file=sys.stderr)
       sys.stderr.write('%s\n' % ('-' * 50))
-      sys.stderr.write("Returning %i\n" % -code)
+      sys.stderr.write("Returning %i\n" % result)
       sys.stderr.flush()
     # Convert the exception to a FUSE error code.
-    if isinstance(exception, OSError):
-      return -exception.errno
-    else:
-      return -code
-
+    return result
+    
 class Buffer: # {{{1
 
   """

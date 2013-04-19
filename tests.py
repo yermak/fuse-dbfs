@@ -28,111 +28,161 @@ class Test(unittest.TestCase):
 
   def tearDown(self):
     pass
+
+  def assertZero(self, actual, message):
+    self.assertEquals(actual, 0, message)
+
     
 #  SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = %(parent_id) AND t.name = s.id AND s.string = %(name) LIMIT 1   
   def test_mkdir_access_normal(self):
     self.fs.mkdir({'uid':1, 'gid':2},'first', 777)
     access = self.fs.access({'uid':1, 'gid':2}, 'first', 0)
-    self.assertEqual(0, access, 'Access failed')
+    self.assertZero(access, 'Access failed')
     
     
   def test_mkdir_access_nested(self):    
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"parent_dir", 777)
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"parent_dir/child_dir", 777)
-    self.assertEqual(0, mkdir, 'mkdir failed')
+    self.assertZero(mkdir, 'mkdir failed')
     access = self.fs.access({'uid':1, 'gid':2}, "parent_dir/child_dir", 0)
-    self.assertEqual(0, access, 'Access failed')
+    self.assertZero(access, 'Access failed')
     
     
   def test_chmod(self):
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"mod_dir", 0777)
-    self.assertEqual(0, mkdir, 'mkdir failed')
+    self.assertZero(mkdir, 'mkdir failed')
     chmod = self.fs.chmod('mod_dir', 0000)
-    self.assertEqual(0, chmod, 'Chmod failed')
+    self.assertZero(chmod, 'Chmod failed')
     
     access = self.fs.access({'uid':1, 'gid':2}, 'mod_dir', os.W_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')  
+    self.assertEqual(access, -errno.EACCES, 'Access violation')  
     
     access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.R_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    self.assertEqual(access, -errno.EACCES, 'Access violation')
     
     access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.X_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    self.assertEqual(access, -errno.EACCES, 'Access violation')
     
     access = self.fs.access({'uid':3, 'gid':3}, 'mod_dir', os.X_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    self.assertEqual(access, -errno.EACCES, 'Access violation')
     
     
     chmod = self.fs.chmod('mod_dir', 0751)
-    self.assertEqual(0, chmod, 'Chmod failed')
+    self.assertZero(chmod, 'Chmod failed')
 
     access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.R_OK)
-    self.assertEqual(0, access, 'Access denied')
+    self.assertZero(access, 'Access denied')
 
     
     access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.W_OK)
-    self.assertEqual(0, access, 'Access denied')  
+    self.assertZero(access, 'Access denied')  
     
     
     access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access denied')
+    self.assertZero(access, 'Access denied')
    
   
     access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.R_OK)
-    self.assertEqual(0, access, 'Access denied')
+    self.assertZero(access, 'Access denied')
    
     access = self.fs.access({'uid':3, 'gid':2}, 'mod_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access denied')
+    self.assertZero(access, 'Access denied')
       
     access = self.fs.access({'uid':3, 'gid':3}, 'mod_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access denied')
+    self.assertZero(access, 'Access denied')
     
     self.fs.read_only = True
     access = self.fs.access({'uid':1, 'gid':3}, 'mod_dir', os.W_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access denied')  
+    self.assertEqual(access, -errno.EACCES, 'Access denied')  
     
     
   def test_chown(self):
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},"own_dir", 0751)
-    self.assertEqual(0, mkdir, 'mkdir failed')
+    self.assertZero(mkdir, 'mkdir failed')
     access = self.fs.access({'uid':1, 'gid':4}, 'own_dir', os.W_OK)
-    self.assertEqual(0, access, 'Access denied') 
+    self.assertZero(access, 'Access denied') 
     access = self.fs.access({'uid':3, 'gid':2}, 'own_dir', os.R_OK)
-    self.assertEqual(0, access, 'Access denied') 
+    self.assertZero(access, 'Access denied') 
     access = self.fs.access({'uid':5, 'gid':6}, 'own_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access denied') 
+    self.assertZero(access, 'Access denied') 
     
     
     chown = self.fs.chown('own_dir', 3, 4)
-    self.assertEqual(0, chown, 'Chown failed')
+    self.assertZero(chown, 'Chown failed')
     
     access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access denied') 
+    self.assertZero(access, 'Access denied') 
       
     access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.R_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    self.assertEqual(access, -errno.EACCES, 'Access violation')
     
     access = self.fs.access({'uid':1, 'gid':2}, 'own_dir', os.W_OK)
-    self.assertEqual(-errno.EACCES, access, 'Access violation')
+    self.assertEqual(access, -errno.EACCES, 'Access violation')
     
     access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.R_OK)
-    self.assertEqual(0, access, 'Access violation')
+    self.assertZero(access, 'Access violation')
     
     access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.W_OK)
-    self.assertEqual(0, access, 'Access violation')
+    self.assertZero(access, 'Access violation')
     
     access = self.fs.access({'uid':3, 'gid':5}, 'own_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access violation')
+    self.assertZero(access, 'Access violation')
     
     access = self.fs.access({'uid':1, 'gid':4}, 'own_dir', os.X_OK)
-    self.assertEqual(0, access, 'Access violation')
+    self.assertZero(access, 'Access violation')
+  
+
     
   def test_rmdir(self):
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir', 0777)
-    self.assertEqual(0, mkdir, 'mkdir failed')
-    
+    self.assertZero(mkdir, 'mkdir failed')
     rmdir = self.fs.rmdir('rm_dir')
-    self.assertEqual(1, rmdir, 'rmdir failed')
+    self.assertZero(rmdir, 'rmdir failed')
+  
+  def test_rmdir_nested(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir_parent', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir_parent/rm_dir_child', 0777)
+    self.assertZero(mkdir, 'mkdir failed')
+#     with self.assertRaises(OSError) as cm:
+#       rmdir = self.fs.rmdir('rm_dir_parent')
+#       the_exception = cm.exception
+#       self.assertEqual(the_exception.error_code, errno.ENOTEMPTY)
+    rmdir = self.fs.rmdir('rm_dir_parent')
+    self.assertEqual(rmdir, -errno.ENOTEMPTY, 'Proper Error was not raised, expected %s found %s'%(-errno.ENOTEMPTY, rmdir))
+  
+  
+  def test_rmdir_readonly(self): 
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir_readonly', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    self.fs.read_only = True
+    rmdir = self.fs.rmdir('rm_dir_readonly')
+    self.assertEqual(rmdir, -errno.EROFS, 'Readonly error was not raised')
+  
+  
+  def test_symlink(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'real_dir_parent', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'real_dir_parent/real_dir_child', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'sym_dir_parent', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    
+    symlink = self.fs.symlink({'uid':1, 'gid':2},'real_dir_parent/real_dir_child', 'sym_dir_parent/sym_dir_child')
+    self.assertZero(symlink, 'Symlink failed')
+  
+  def test_readlink(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'real_dir_parent', 0777)
+    self.assertZero(mkdir,'mkdir failed')
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'real_dir_parent/real_dir_child', 0777)
+    
+    symlink = self.fs.symlink({'uid':1, 'gid':2},'real_dir_parent/real_dir_child', 'sym_dir')
+    target = self.fs.readlink('sym_dir')
+    self.assertEqual(target, 'real_dir_parent/real_dir_child', 'Readlink failed')
+    
+   
+  
+  
   
   
 if __name__ == "__main__":
