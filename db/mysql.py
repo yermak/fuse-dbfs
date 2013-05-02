@@ -115,15 +115,17 @@ class MysqlDb():
 
   def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
     inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev, size=size, time=t)
-    string_id = self.get_node_by_name(name)
+    string_id = self.get_string_id_by_name(name)
     node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode_id=inode)
     return node_id, inode
 
-  def get_node_by_name(self, string):
+  def get_string_id_by_name(self, string):
     result = self.execute_named_query('query_string_id', limit=1, string=string)
     if not result:
       result = self.execute_named_stmt('insert_string', string=string)
-    return int(result)
+      return int(result)
+    else:
+      return result[0]
 
   # Get the path's mode, owner and group through the inode.
   def get_mode_uid_gid(self, inode):

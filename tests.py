@@ -9,7 +9,7 @@ from dbfs import Dbfs
 import errno
 import os
 
-class Test(unittest.TestCase):
+class DbfsTest(unittest.TestCase):
 
   def setUp(self):
     self.fs = Dbfs();
@@ -33,7 +33,6 @@ class Test(unittest.TestCase):
     self.assertEquals(actual, 0, message)
 
     
-#  SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = %(parent_id) AND t.name = s.id AND s.string = %(name) LIMIT 1   
   def test_mkdir_access_normal(self):
     self.fs.mkdir({'uid':1, 'gid':2},'first', 777)
     access = self.fs.access({'uid':1, 'gid':2}, 'first', 0)
@@ -138,6 +137,10 @@ class Test(unittest.TestCase):
     self.assertZero(mkdir, 'mkdir failed')
     rmdir = self.fs.rmdir('rm_dir')
     self.assertZero(rmdir, 'rmdir failed')
+    access = self.fs.access({'uid':1, 'gid':2},'rm_dir', os.R_OK)
+    self.assertNotEqual(access, 0, 'Accessed non existing directory')
+    
+    
   
   def test_rmdir_nested(self):
     mkdir = self.fs.mkdir({'uid':1, 'gid':2},'rm_dir_parent', 0777)
@@ -180,7 +183,16 @@ class Test(unittest.TestCase):
     target = self.fs.readlink('sym_dir')
     self.assertEqual(target, 'real_dir_parent/real_dir_child', 'Readlink failed')
     
-   
+  def test_link(self):
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'source_dir_parent', 0777)
+    mkdir = self.fs.mkdir({'uid':1, 'gid':2},'source_dir_parent/source_dir_child', 0777)
+    
+    link = self.fs.link('source_dir_parent/source_dir_child','dist_dir')
+    self.assertZero(link, 'Failed to create hard link')
+    access = self.fs.access({'uid':1, 'gid':2}, 'dist_dir', os.R_OK)
+    self.assertZero(access, 'Failed to access linked dir')
+    
+     
   
   
   

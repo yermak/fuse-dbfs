@@ -228,7 +228,7 @@ class Dbfs:
       target_ino = self.__path2keys(target_path)[1]
       link_parent, link_name = os.path.split(link_path)
       link_parent_id, link_parent_ino = self.__path2keys(link_parent)
-      string_id = self.db.get_node_by_name(link_name)
+      string_id = self.db.get_string_id_by_name(link_name)
       node_id = self.db.add_leaf(link_parent_id, string_id, target_ino)
       
       self.db.inc_links(target_ino)
@@ -237,7 +237,7 @@ class Dbfs:
       if mode & stat.S_IFDIR:
         self.db.inc_links(link_parent_ino)
         
-      self.__cache_set(link_path, (node_id, target_ino))
+#       self.__cache_set(link_path, (node_id, target_ino))
       self.db.commit(nested)
       self.__gc_hook(nested)
       return 0
@@ -612,7 +612,7 @@ class Dbfs:
     # Make sure directories are empty before deleting them to avoid orphaned inodes.
     if check_empty and self.db.count_of_children(inode) > 0:
       raise OSError, (errno.ENOTEMPTY, os.strerror(errno.ENOTEMPTY), path)
-    self.__cache_set(path, None)
+#     self.__cache_set(path, None)
     self.db.remove_leaf(node_id, inode);
     # Inodes with nlinks = 0 are purged periodically from __collect_garbage() so
     # we don't have to do that here.
@@ -620,8 +620,7 @@ class Dbfs:
     if mode & stat.S_IFDIR:
       parent_id, parent_ino = self.__path2keys(os.path.split(path)[0])
       self.db.dec_links(parent_ino)
-      
-
+    
   def __verify_write(self, block, digest, block_nr, inode): # {{{3
     if self.verify_writes:
       saved_value = self.decompress(self.db.get_data(digest))
