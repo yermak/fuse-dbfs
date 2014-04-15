@@ -13,7 +13,6 @@ class DbfsTest(unittest.TestCase):
     def setUp(self):
         self.fs = Dbfs();
         self.fs.db.open_connection()
-
         self.fs.db.conn().execute('drop table if exists options')
         self.fs.db.conn().execute('drop table if exists indices')
         self.fs.db.conn().execute('drop table if exists hashes')
