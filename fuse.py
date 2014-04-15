@@ -10,10 +10,11 @@
 # suppress version mismatch warnings
 try:
     import warnings
+
     warnings.filterwarnings('ignore',
                             'Python C API version mismatch',
                             RuntimeWarning,
-                            )
+    )
 except:
     pass
 
@@ -40,7 +41,8 @@ from fuseparts.setcompatwrap import set
 # The actual API version of this module
 FUSE_PYTHON_API_VERSION = (0, 2)
 
-def __getenv__(var, pattern = '.', trans = lambda x: x):
+
+def __getenv__(var, pattern='.', trans=lambda x: x):
     """
     Fetch enviroment variable and optionally transform it. Return `None` if
     variable is unset. Bail out if value of variable doesn't match (optional)
@@ -58,19 +60,21 @@ def __getenv__(var, pattern = '.', trans = lambda x: x):
                            (var, `pattern`))
     return trans(val)
 
+
 def get_fuse_python_api():
     if fuse_python_api:
         return fuse_python_api
     elif compat_0_1:
         # deprecated way of API specification
-        return (0,1)
+        return (0, 1)
+
 
 def get_compat_0_1():
     return get_fuse_python_api() == (0, 1)
 
 # API version to be used
 fuse_python_api = __getenv__('FUSE_PYTHON_API', '^[\d.]+$',
-                              lambda x: tuple([int(i) for i in x.split('.')]))
+                             lambda x: tuple([int(i) for i in x.split('.')]))
 
 # deprecated way of API specification
 compat_0_1 = __getenv__('FUSE_PYTHON_COMPAT', '^(0.1|ALL)$', lambda x: True)
@@ -139,7 +143,7 @@ class FuseArgs(SubOptsHive):
 
         opta = []
         for o, v in self.optdict.iteritems():
-                opta.append(o + '=' + v)
+            opta.append(o + '=' + v)
         opta.extend(self.optlist)
 
         if opta:
@@ -160,9 +164,7 @@ class FuseArgs(SubOptsHive):
         return SubOptsHive.filter(self, other)
 
 
-
 class FuseFormatter(SubbedOptIndentedFormatter):
-
     def __init__(self, **kw):
         if not 'indent_increment' in kw:
             kw['indent_increment'] = 4
@@ -333,14 +335,13 @@ class FuseOptParse(SubbedOptParse):
         if 'mountopt' in attrs:
             if opts or 'subopt' in attrs:
                 raise OptParseError(
-                  "having options or specifying the `subopt' attribute conflicts with `mountopt' attribute")
+                    "having options or specifying the `subopt' attribute conflicts with `mountopt' attribute")
             opts = ('-o',)
             attrs['subopt'] = attrs.pop('mountopt')
             if not 'dest' in attrs:
                 attrs['dest'] = attrs['subopt']
 
         SubbedOptParse.add_option(self, *opts, **attrs)
-
 
 
 ##########
@@ -352,7 +353,6 @@ class FuseOptParse(SubbedOptParse):
 
 
 class ErrnoWrapper(object):
-
     def __init__(self, func):
         self.func = func
 
@@ -368,10 +368,9 @@ class ErrnoWrapper(object):
 ########### Custom objects for transmitting system structures to FUSE
 
 class FuseStruct(object):
-
     def __init__(self, **kw):
         for k in kw:
-             setattr(self, k, kw[k])
+            setattr(self, k, kw[k])
 
 
 class Stat(FuseStruct):
@@ -381,13 +380,13 @@ class Stat(FuseStruct):
     """
 
     def __init__(self, **kw):
-        self.st_mode  = None
-        self.st_ino   = 0
-        self.st_dev   = 0
+        self.st_mode = None
+        self.st_ino = 0
+        self.st_dev = 0
         self.st_nlink = None
-        self.st_uid   = 0
-        self.st_gid   = 0
-        self.st_size  = 0
+        self.st_uid = 0
+        self.st_gid = 0
+        self.st_size = 0
         self.st_atime = 0
         self.st_mtime = 0
         self.st_ctime = 0
@@ -402,16 +401,15 @@ class StatVfs(FuseStruct):
     """
 
     def __init__(self, **kw):
-
-        self.f_bsize   = 0
-        self.f_frsize  = 0
-        self.f_blocks  = 0
-        self.f_bfree   = 0
-        self.f_bavail  = 0
-        self.f_files   = 0
-        self.f_ffree   = 0
-        self.f_favail  = 0
-        self.f_flag    = 0
+        self.f_bsize = 0
+        self.f_frsize = 0
+        self.f_blocks = 0
+        self.f_bfree = 0
+        self.f_bavail = 0
+        self.f_files = 0
+        self.f_ffree = 0
+        self.f_favail = 0
+        self.f_flag = 0
         self.f_namemax = 0
 
         FuseStruct.__init__(self, **kw)
@@ -443,11 +441,10 @@ class Direntry(FuseStruct):
     """
 
     def __init__(self, name, **kw):
-
-        self.name   = name
+        self.name = name
         self.offset = 0
-        self.type   = 0
-        self.ino    = 0
+        self.type = 0
+        self.ino = 0
 
         FuseStruct.__init__(self, **kw)
 
@@ -462,15 +459,14 @@ class Flock(FuseStruct):
     """
 
     def __init__(self, name, **kw):
-    
-        self.l_type  = None
+        self.l_type = None
         self.l_start = None
-        self.l_len   = None
-        self.l_pid   = None
- 
+        self.l_len = None
+        self.l_pid = None
+
         FuseStruct.__init__(self, **kw)
 
- 
+
 class Timespec(FuseStruct):
     """
     Cf. struct timespec in time.h:
@@ -478,22 +474,18 @@ class Timespec(FuseStruct):
     """
 
     def __init__(self, **kw):
-    
-        self.tv_sec  = None
+        self.tv_sec = None
         self.tv_nsec = None
- 
+
         FuseStruct.__init__(self, **kw)
 
 
 class FuseFileInfo(FuseStruct):
-
     def __init__(self, **kw):
-
-        self.keep      = False
+        self.keep = False
         self.direct_io = False
 
         FuseStruct.__init__(self, **kw)
-
 
 
 ########## Interface for requiring certain features from your underlying FUSE library.
@@ -533,27 +525,27 @@ def feature_needs(*feas):
     """
 
     fmap = {'stateful_files': 22,
-            'stateful_dirs':  23,
-            'stateful_io':    ('stateful_files', 'stateful_dirs'),
+            'stateful_dirs': 23,
+            'stateful_io': ('stateful_files', 'stateful_dirs'),
             'stateful_files_keep_cache': 23,
             'stateful_files_direct_io': 23,
-            'keep_cache':     ('stateful_files_keep_cache',),
-            'direct_io':      ('stateful_files_direct_io',),
-            'has_opendir':    ('stateful_dirs',),
+            'keep_cache': ('stateful_files_keep_cache',),
+            'direct_io': ('stateful_files_direct_io',),
+            'has_opendir': ('stateful_dirs',),
             'has_releasedir': ('stateful_dirs',),
-            'has_fsyncdir':   ('stateful_dirs',),
-            'has_create':     25,
-            'has_access':     25,
-            'has_fgetattr':   25,
-            'has_ftruncate':  25,
-            'has_fsinit':     ('has_init'),
-            'has_fsdestroy':  ('has_destroy'),
-            'has_lock':       26,
-            'has_utimens':    26,
-            'has_bmap':       26,
-            'has_init':       23,
-            'has_destroy':    23,
-            '*':              '!re:^\*$'}
+            'has_fsyncdir': ('stateful_dirs',),
+            'has_create': 25,
+            'has_access': 25,
+            'has_fgetattr': 25,
+            'has_ftruncate': 25,
+            'has_fsinit': ('has_init'),
+            'has_fsdestroy': ('has_destroy'),
+            'has_lock': 26,
+            'has_utimens': 26,
+            'has_bmap': 26,
+            'has_init': 23,
+            'has_destroy': 23,
+            '*': '!re:^\*$'}
 
     if not feas:
         return fmap
@@ -575,7 +567,7 @@ def feature_needs(*feas):
                     mag = ma.groups()
                     fp = re.compile(mag[1])
                     neg = bool(mag[0])
-                for f in fmap.keys() + [ 'has_' + a for a in Fuse._attrs ]:
+                for f in fmap.keys() + ['has_' + a for a in Fuse._attrs]:
                     if neg != bool(re.search(fp, f)):
                         yield f
                 continue
@@ -617,8 +609,8 @@ def feature_assert(*feas):
         fn = feature_needs(fea)
         if fav < fn:
             raise FuseError(
-              "FUSE API version %d is required for feature `%s' but only %d is available" % \
-              (fn, str(fea), fav))
+                "FUSE API version %d is required for feature `%s' but only %d is available" % \
+                (fn, str(fea), fav))
 
 
 ############# Subclass this.
@@ -679,12 +671,13 @@ class Fuse(object):
 
         def malformed():
             raise RuntimeError, \
-                  "malformatted fuse_python_api value " + `fuse_python_api`
+                "malformatted fuse_python_api value " + `fuse_python_api`
+
         if not isinstance(fuse_python_api, tuple):
             malformed()
         for i in fuse_python_api:
             if not isinstance(i, int) or i < 0:
-                malformed() 
+                malformed()
 
         if fuse_python_api > FUSE_PYTHON_API_VERSION:
             raise RuntimeError, """
@@ -706,7 +699,7 @@ class Fuse(object):
             kw['fuse_args'] = self.fuse_args
         kw['fuse'] = self
         parserclass = \
-          'parser_class' in kw and kw.pop('parser_class') or FuseOptParse
+            'parser_class' in kw and kw.pop('parser_class') or FuseOptParse
 
         self.parser = parserclass(*args, **kw)
         self.methproxy = self.Methproxy()
@@ -721,9 +714,9 @@ class Fuse(object):
         try:
             self.cmdline = self.parser.parse_args(*args, **kw)
         except OptParseError:
-          if ev:
-              sys.exit(ev)
-          raise
+            if ev:
+                sys.exit(ev)
+            raise
 
         return self.fuse_args
 
@@ -738,7 +731,7 @@ class Fuse(object):
 
         for t in 'file_class', 'dir_class':
             if hasattr(self, t):
-                getattr(self.methproxy, 'set_' + t)(getattr(self,t))
+                getattr(self.methproxy, 'set_' + t)(getattr(self, t))
 
         for a in self._attrs:
             b = a
@@ -779,8 +772,8 @@ class Fuse(object):
                     return (res, type(res) != FuseFileInfo)
         elif fname == 'utimens':
             def wrap(path, acc_sec, acc_nsec, mod_sec, mod_nsec):
-                ts_acc = Timespec(tv_sec = acc_sec, tv_nsec = acc_nsec)
-                ts_mod = Timespec(tv_sec = mod_sec, tv_nsec = mod_nsec)
+                ts_acc = Timespec(tv_sec=acc_sec, tv_nsec=acc_nsec)
+                ts_mod = Timespec(tv_sec=mod_sec, tv_nsec=mod_nsec)
                 return fun(path, ts_acc, ts_mod)
         else:
             wrap = fun
@@ -806,14 +799,14 @@ class Fuse(object):
         pr, pw = os.pipe()
         pid = os.fork()
         if pid == 0:
-             os.dup2(pw, 2)
-             os.close(pr)
+            os.dup2(pw, 2)
+            os.close(pr)
 
-             fh = cls()
-             fh.fuse_args = FuseArgs()
-             fh.fuse_args.setmod('showhelp')
-             fh.main()
-             sys.exit()
+            fh = cls()
+            fh.fuse_args = FuseArgs()
+            fh.fuse_args.setmod('showhelp')
+            fh.main()
+            sys.exit()
 
         os.close(pw)
 
@@ -821,20 +814,20 @@ class Fuse(object):
         ore = re.compile("-o\s+([\w\[\]]+(?:=\w+)?)")
         fpr = os.fdopen(pr)
         for l in fpr:
-             m = ore.search(l)
-             if m:
-                 o = m.groups()[0]
-                 oa = [o]
-                 # try to catch two-in-one options (like "[no]foo")
-                 opa = o.split("[")
-                 if len(opa) == 2:
+            m = ore.search(l)
+            if m:
+                o = m.groups()[0]
+                oa = [o]
+                # try to catch two-in-one options (like "[no]foo")
+                opa = o.split("[")
+                if len(opa) == 2:
                     o1, ox = opa
                     oxpa = ox.split("]")
                     if len(oxpa) == 2:
-                       oo, o2 = oxpa
-                       oa = [o1 + o2, o1 + oo + o2]
-                 for o in oa:
-                     fa.add(o)
+                        oo, o2 = oxpa
+                        oa = [o1 + o2, o1 + oo + o2]
+                for o in oa:
+                    fa.add(o)
 
         fpr.close()
         return fa
@@ -847,10 +840,11 @@ class Fuse(object):
         def __init__(self):
 
             class mpx(object):
-               def __init__(self, name):
-                   self.name = name
-               def __call__(self, *a, **kw):
-                   return getattr(a[-1], self.name)(*(a[1:-1]), **kw)
+                def __init__(self, name):
+                    self.name = name
+
+                def __call__(self, *a, **kw):
+                    return getattr(a[-1], self.name)(*(a[1:-1]), **kw)
 
             self.proxyclass = mpx
             self.mdic = {}
@@ -893,12 +887,11 @@ class Fuse(object):
         raise AttributeError, "Fuse instance has no attribute '%s'" % meth
 
 
-
-##########
-###
-###  Compat stuff.
-###
-##########
+    ##########
+    ###
+    ###  Compat stuff.
+    ###
+    ##########
 
 
 
@@ -971,16 +964,16 @@ class Fuse(object):
         lo = len(oout)
 
         svf = StatVfs()
-        svf.f_bsize   = oout[0]                   # 0
-        svf.f_frsize  = oout[lo >= 8 and 7 or 0]  # 1
-        svf.f_blocks  = oout[1]                   # 2
-        svf.f_bfree   = oout[2]                   # 3
-        svf.f_bavail  = oout[3]                   # 4
-        svf.f_files   = oout[4]                   # 5
-        svf.f_ffree   = oout[5]                   # 6
-        svf.f_favail  = lo >= 9 and oout[8] or 0  # 7
-        svf.f_flag    = lo >= 10 and oout[9] or 0 # 8
-        svf.f_namemax = oout[6]                   # 9
+        svf.f_bsize = oout[0]  # 0
+        svf.f_frsize = oout[lo >= 8 and 7 or 0]  # 1
+        svf.f_blocks = oout[1]  # 2
+        svf.f_bfree = oout[2]  # 3
+        svf.f_bavail = oout[3]  # 4
+        svf.f_files = oout[4]  # 5
+        svf.f_ffree = oout[5]  # 6
+        svf.f_favail = lo >= 9 and oout[8] or 0  # 7
+        svf.f_flag = lo >= 10 and oout[9] or 0  # 8
+        svf.f_namemax = oout[6]  # 9
 
         return svf
 

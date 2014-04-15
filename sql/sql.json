@@ -46,6 +46,4 @@
 "delete_tree_item": "DELETE FROM tree WHERE id = %(id)s"
 
 
-
-
 }
