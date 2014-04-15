@@ -4,7 +4,6 @@ Created on Feb 28, 2013
 @author: yermak
 '''
 import unittest
-import json
 from dbfs import Dbfs
 import errno
 import os
