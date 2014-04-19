@@ -31,7 +31,7 @@ CREATE TABLE links (
 
 CREATE TABLE hashes (
 	id BIGINT PRIMARY KEY,
-	hash BLOB NOT NULL UNIQUE
+	hash BLOB NOT NULL
 );
 
 CREATE TABLE indices (
