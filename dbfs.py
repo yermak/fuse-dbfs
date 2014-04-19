@@ -369,7 +369,7 @@ class Dbfs:
             self.db.commit()
             self.__gc_hook()
             return 0
-         except Exception, e:
+        except Exception, e:
             self.db.rollback()
             return self.__except_to_status('rename', e, errno.ENOENT)
 
