@@ -111,7 +111,7 @@ class DedupFS(fuse.Fuse):  # {{{1
 
     def __init__(self, *args, **kw):  # {{{2
 
-        try:
+        # try:
 
             # Set the Python FUSE API version.
             fuse.fuse_python_api = (0, 2)
@@ -185,9 +185,9 @@ class DedupFS(fuse.Fuse):  # {{{1
                 self.logger.warning("If you're on Ubuntu try `sudo apt-get install python-profiler'.")
 
             self.fs = dbfs.Dbfs()
-        except Exception, e:
-            # self.__except_to_status('__init__', e)
-            sys.exit(1)
+        # except Exception, e:
+        #     self.__except_to_status('__init__', e)
+        #     sys.exit(1)
 
 
     # FUSE API implementation: {{{2
