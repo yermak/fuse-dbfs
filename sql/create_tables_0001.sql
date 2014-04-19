@@ -25,7 +25,7 @@ CREATE TABLE inodes (
 );
 
 CREATE TABLE links (
-	inode BIGINT UNIQUE
+	inode BIGINT UNIQUE,
 	target TEXT NOT NULL
 );
 
