@@ -15,13 +15,13 @@ CREATE TABLE inodes (
 	inode BIGINT PRIMARY KEY,
 	nlinks INTEGER NOT NULL, 
 	mode INTEGER NOT NULL, 
-	uid INTEGER,
-	gid INTEGER, 
-	rdev INTEGER, 
-	size INTEGER, 
-	atime INTEGER, 
-	mtime INTEGER, 
-	ctime INTEGER
+	uid INTEGER NOT NULL,
+	gid INTEGER NOT NULL,
+	rdev INTEGER NOT NULL,
+	size INTEGER NOT NULL,
+	atime INTEGER NOT NULL,
+	mtime INTEGER NOT NULL,
+	ctime INTEGER NOT NULL
 );
 
 CREATE TABLE links (
