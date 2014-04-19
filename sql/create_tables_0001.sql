@@ -43,5 +43,5 @@ CREATE TABLE indices (
 
 CREATE TABLE options (
 	name TEXT PRIMARY KEY,
-	value TEXT(100) NOT NULL
+	`value` TEXT(100) NOT NULL
 );
