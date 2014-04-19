@@ -133,10 +133,10 @@ class DedupFS(fuse.Fuse):  # {{{1
             self.parser.add_option('--print-stats', dest='print_stats', action='store_true', default=False,
                                    help="print the total apparent size and the actual disk usage of the file system and exit")
             self.parser.add_option('--log-file', dest='log_file', help="specify log file location")
-            self.parser.add_option('--metastore', dest='metastore', metavar='FILE', default=self.metastore_file,
-                                   help="specify the location of the file in which metadata is stored")
-            self.parser.add_option('--datastore', dest='datastore', metavar='FILE', default=self.datastore_file,
-                                   help="specify the location of the file in which data blocks are stored")
+            # self.parser.add_option('--metastore', dest='metastore', metavar='FILE', default=self.metastore_file,
+            #                        help="specify the location of the file in which metadata is stored")
+            # self.parser.add_option('--datastore', dest='datastore', metavar='FILE', default=self.datastore_file,
+            #                        help="specify the location of the file in which data blocks are stored")
             self.parser.add_option('--block-size', dest='block_size', metavar='BYTES', default=self.block_size,
                                    type='int', help="specify the maximum block size in bytes" + option_stored_in_db)
             self.parser.add_option('--no-transactions', dest='use_transactions', action='store_false', default=True,
