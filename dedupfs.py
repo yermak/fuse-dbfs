@@ -137,8 +137,8 @@ class DedupFS(fuse.Fuse):  # {{{1
             #                        help="specify the location of the file in which metadata is stored")
             # self.parser.add_option('--datastore', dest='datastore', metavar='FILE', default=self.datastore_file,
             #                        help="specify the location of the file in which data blocks are stored")
-            self.parser.add_option('--block-size', dest='block_size', metavar='BYTES', default=self.block_size,
-                                   type='int', help="specify the maximum block size in bytes" + option_stored_in_db)
+            # self.parser.add_option('--block-size', dest='block_size', metavar='BYTES', default=self.block_size,
+            #                        type='int', help="specify the maximum block size in bytes" + option_stored_in_db)
             self.parser.add_option('--no-transactions', dest='use_transactions', action='store_false', default=True,
                                    help="don't use transactions when making multiple related changes, this might make the file system faster or slower (?)")
             self.parser.add_option('--nosync', dest='synchronous', action='store_false', default=True,
