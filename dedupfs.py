@@ -186,7 +186,7 @@ class DedupFS(fuse.Fuse):  # {{{1
 
             self.fs = dbfs.Dbfs()
         except Exception, e:
-            self.__except_to_status('__init__', e)
+            # self.__except_to_status('__init__', e)
             sys.exit(1)
 
 
