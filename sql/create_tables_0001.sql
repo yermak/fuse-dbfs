@@ -26,7 +26,7 @@ CREATE TABLE inodes (
 
 CREATE TABLE links (
 	inode BIGINT UNIQUE
-	target BLOB NOT NULL
+	target TEXT NOT NULL
 );
 
 CREATE TABLE hashes (
