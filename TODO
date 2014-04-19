@@ -1,3 +1,9 @@
+* Setup python-mysql on test VM host
+* Check reference how to store blob in mysql
+
+
+
+
 Here are some things on my to-do list, in no particular order:
 
  * Automatically switch to a larger block size to reduce the overhead for files

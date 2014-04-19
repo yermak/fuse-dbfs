@@ -36,6 +36,7 @@
 "inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
 "update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
 "update_inode_size": "UPDATE inodes SET size = %(size)s, mtime=%(mtime)s WHERE inode = %(inode)s",
+"update_leaf_name": "UPDATE tree set name = %(name)s where inode = %(inode)s",
 
 
 "delete_indices_by_node_and_block_nr": "DELETE FROM indices WHERE inode=%(inode)s and block_nr > %(block_nr)s",

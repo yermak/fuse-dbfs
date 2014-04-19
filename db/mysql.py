@@ -244,3 +244,6 @@ class MysqlDb():
 
     def vacuum(self):
         self.__conn.execute('VACUUM')
+
+    def update_leaf(self, inode, new_string_id):
+        self.execute_named_stmt('update_leaf_name')

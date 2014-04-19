@@ -3,8 +3,14 @@
 # Documentation. {{{1
 
 """
-This Python script implements a file system in user space using FUSE. It's
-called DedupFS because the file system's primary feature is deduplication,
+This Python script implements a file system in user space using FUSE.
+This module was based on DedupFS filesystem but was refactored to add
+more features and add higher abstraction level.
+
+
+
+==========================================================================
+It's called DedupFS because the file system's primary feature is deduplication,
 which enables it to store virtually unlimited copies of files because data
 is only stored once.
 
@@ -13,11 +19,15 @@ compression using any of the compression methods lzo, zlib and bz2.
 
 These two properties make the file system ideal for backups: I'm currently
 storing 250 GB worth of backups using only 8 GB of disk space.
-
-The latest version is available at http://peterodding.com/code/dedupfs/
+============================================================================
 
 DedupFS is licensed under the MIT license.
+The latest version is available at http://peterodding.com/code/dedupfs/
 Copyright 2010 Peter Odding <peter@peterodding.com>.
+
+dbfs-fuse is licensed under the MIT license.
+Copyright 2014 Yaroslav Yermak <yermak@gmail.com>.
+
 """
 
 # Imports. {{{1
@@ -58,9 +68,10 @@ except ImportError:
     sys.exit(1)
 
 # Local modules that are mostly useful for debugging.
-from my_formats import format_size, format_timespan
-from get_memory_usage import get_memory_usage
-from db import Db
+
+# from my_formats import format_size, format_timespan
+# from get_memory_usage import get_memory_usage
+# from db import Db
 
 
 def main():  # {{{1

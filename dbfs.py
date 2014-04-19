@@ -1,5 +1,8 @@
 '''
 Created on 26.03.2013
+This module is used to imlement Dbfs abstraction layer. It should contain only logic of managing filesystem entities.
+This module should depend neither FUSE nor specific database implementation
+TODO implementation of db should not be hardcoded and should be defined by config file.
 
 @author: Yermak
 '''
@@ -328,7 +331,7 @@ class Dbfs:
         except Exception, e:
             return self.__except_to_status('release', e, errno.EIO)
 
-    def rename(self, old_path, new_path):  # {{{3
+    def rename1(self, old_path, new_path):  # {{{3
         try:
             self.__log_call('rename', 'rename(%r -> %r)', old_path, new_path)
             if self.read_only: return -errno.EROFS
@@ -349,6 +352,27 @@ class Dbfs:
         except Exception, e:
             self.db.rollback()
             return self.__except_to_status('rename', e, errno.ENOENT)
+
+
+    def rename(self, old_path, new_path):
+        try:
+            self.__log_call('rename', 'rename(%r -> %r)', old_path, new_path)
+            if self.read_only: return -errno.EROFS
+
+            new_parent, new_name = os.path.split(new_path)
+            new_string_id = self.db.get_string_id_by_name(new_name)
+
+            node_id, inode = self.__path2keys(old_path)
+
+            self.db.update_leaf(inode, new_string_id)
+
+            self.db.commit()
+            self.__gc_hook()
+            return 0
+         except Exception, e:
+            self.db.rollback()
+            return self.__except_to_status('rename', e, errno.ENOENT)
+
 
     def rmdir(self, path):  # {{{3
         try:
