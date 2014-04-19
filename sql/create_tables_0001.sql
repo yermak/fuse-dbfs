@@ -43,5 +43,5 @@ CREATE TABLE indices (
 
 CREATE TABLE options (
 	name VARCHAR(255) PRIMARY KEY,
-	value VARCHAR NOT NULL
+	value VARCHAR
 );
