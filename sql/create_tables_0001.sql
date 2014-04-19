@@ -8,11 +8,11 @@ CREATE TABLE tree (
 
 CREATE TABLE strings (
 	id INTEGER PRIMARY KEY, 
-	value TEXT(1024) NOT NULL UNIQUE
+	value TEXT(1024) NOT NULL
 );
 	
 CREATE TABLE inodes (
-	inode BIGINTEGER PRIMARY KEY,
+	inode BIGINT PRIMARY KEY,
 	nlinks INTEGER NOT NULL, 
 	mode INTEGER NOT NULL, 
 	uid INTEGER,
@@ -25,23 +25,23 @@ CREATE TABLE inodes (
 );
 
 CREATE TABLE links (
-	inode BIGINTEGER UNIQUE
+	inode BIGINT UNIQUE
 	target BLOB NOT NULL
 );
 
 CREATE TABLE hashes (
-	id BIGINTEGER PRIMARY KEY, 
+	id BIGINT PRIMARY KEY,
 	hash BLOB NOT NULL UNIQUE
 );
 
 CREATE TABLE indices (
-	inode BIGINTEGER, 
-	hash_id BIGINTEGER, 
+	inode BIGINT,
+	hash_id BIGINT,
 	block_nr INTEGER, 
 	PRIMARY KEY (inode, hash_id, block_nr)
 );
 
 CREATE TABLE options (
-	name TEXT PRIMARY KEY,
-	`value` TEXT(100) NOT NULL
+	name VARCHAR PRIMARY KEY,
+	value VARCHAR NOT NULL
 );
