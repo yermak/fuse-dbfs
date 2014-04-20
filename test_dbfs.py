@@ -16,7 +16,7 @@ class TestDbfs(TestCase):
         self.fs.db.conn().execute('drop table if exists links')
         self.fs.db.conn().execute('drop table if exists inodes')
         self.fs.db.conn().execute('drop table if exists tree')
-        self.fs.db.conn().execute('drop table if exists strings')
+        self.fs.db.conn().execute('drop table if exists names')
 
         self.fs.db.initialize(1, 2, 0)
         self.fs.db.commit()
