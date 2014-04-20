@@ -231,7 +231,7 @@ class Dbfs:
             target_ino = self.__path2keys(target_path)[1]
             link_parent, link_name = os.path.split(link_path)
             link_parent_id, link_parent_ino = self.__path2keys(link_parent)
-            string_id = self.db.get_string_id_by_name(link_name)
+            string_id = self.db.get_name_id_by_name(link_name)
             node_id = self.db.add_leaf(link_parent_id, string_id, target_ino)
 
             self.db.inc_links(target_ino)
@@ -360,7 +360,7 @@ class Dbfs:
             if self.read_only: return -errno.EROFS
 
             new_parent, new_name = os.path.split(new_path)
-            new_string_id = self.db.get_string_id_by_name(new_name)
+            new_string_id = self.db.get_name_id_by_name(new_name)
 
             node_id, inode = self.__path2keys(old_path)
 

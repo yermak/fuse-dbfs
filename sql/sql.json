@@ -1,5 +1,5 @@
 {
-"create_tree":"CREATE TABLE IF NOT EXISTS tree (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT, parent_id BIGINT, name_id BIGINT UNSIGNED NOT NULL, inode BIGINT UNSIGNED NOT NULL, UNIQUE (parent_id, name))",
+"create_tree":"CREATE TABLE IF NOT EXISTS tree (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT, parent_id BIGINT, name_id BIGINT UNSIGNED NOT NULL, inode BIGINT UNSIGNED NOT NULL, UNIQUE (parent_id, name_id))",
 "create_names": "CREATE TABLE IF NOT EXISTS names (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT, name TEXT NOT NULL)",
 "create_inodes":"CREATE TABLE IF NOT EXISTS inodes (inode bigint UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT, nlinks smallint unsigned NOT NULL, mode smallint unsigned NOT NULL, uid smallint unsigned NOT NULL, gid smallint unsigned NOT NULL, rdev int unsigned NOT NULL, size int unsigned NOT NULL, atime int NOT NULL, mtime int NOT NULL, ctime int NOT NULL)",
 "create_links":"CREATE TABLE IF NOT EXISTS links (inode BIGINT NOT NULL UNIQUE, target TEXT NOT NULL)",
@@ -29,7 +29,7 @@
 "query_hashes_by_inode": "SELECT h.hash FROM hashes h, indices i WHERE i.inode = %(inode)s AND h.id=i.hash_id  ORDER BY i.block_nr ASC",
 "query_used_space":"SELECT SUM(inodes.size) FROM tree, inodes WHERE tree.inode = inodes.inode",
 "query_inode_attr": "SELECT inode, nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime FROM inodes WHERE inode = %(inode)s",
-"query_inode_by_parent_and_name": "SELECT t.id, t.inode FROM tree t, names n WHERE t.parent_id = %(parent_id)s AND t.name = s.id AND n.name = %(name)s LIMIT 1",
+"query_inode_by_parent_and_name": "SELECT t.id, t.inode FROM tree t, names n WHERE t.parent_id = %(parent_id)s AND t.name_id = n.id AND n.name = %(name)s LIMIT 1",
 "query_top_blocks": "SELECT * FROM ( SELECT *, COUNT(*) AS 'count' FROM indices GROUP BY hash_id ORDER BY 'count' DESC ), hashes WHERE 'count' > 1 AND hash_id = hashes.id LIMIT 10",
 "query_data" : "SELECT data FROM storage WHERE hash=%(digest)s",
 
