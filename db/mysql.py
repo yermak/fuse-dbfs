@@ -78,17 +78,17 @@ class MysqlDb():
     def initialize(self, uid, gid, root_mode):
         t = time.time()
         self.execute_named_stmt('create_tree')
-        self.execute_named_stmt('create_strings')
+        self.execute_named_stmt('create_names')
         self.execute_named_stmt('create_inodes')
         self.execute_named_stmt('create_links')
         self.execute_named_stmt('create_hashes')
         self.execute_named_stmt('create_indices')
         self.execute_named_stmt('create_options')
         self.execute_named_stmt('create_storage')
-        string_id = self.execute_named_stmt('insert_string', string='')
+        name_id = self.execute_named_stmt('insert_name', name='')
         inode_id = self.execute_named_stmt('insert_inode', nlinks=2, mode=root_mode, uid=uid, gid=gid, rdev=0,
                                            size=1024 * 4, time=t)
-        self.execute_named_stmt('insert_tree_item', parent_id=None, string_id=string_id, inode_id=inode_id)
+        self.execute_named_stmt('insert_tree_item', parent_id=None, name_id=name_id, inode_id=inode_id)
 
     def update_mode(self, mode, inode):
         self.execute_named_stmt('update_inode_mode', mode=mode, inode=inode)
@@ -96,8 +96,8 @@ class MysqlDb():
     def update_uid_gid(self, uid, gid, inode):
         self.execute_named_stmt('update_inode_uid_gid', uid=uid, gid=gid, inode=inode)
 
-    def add_leaf(self, link_parent_id, string_id, target_ino):
-        return self.execute_named_stmt('insert_tree_item', parent_id=link_parent_id, string_id=string_id,
+    def add_leaf(self, link_parent_id, name_id, target_ino):
+        return self.execute_named_stmt('insert_tree_item', parent_id=link_parent_id, name_id=name_id,
                                        inode_id=target_ino)
 
     def remove_leaf(self, node_id, inode):
@@ -119,14 +119,14 @@ class MysqlDb():
     def insert_node_to_tree(self, name, parent_id, nlinks, mode, uid, gid, rdev, size, t):
         inode = self.execute_named_stmt('insert_inode', nlinks=nlinks, mode=mode, uid=uid, gid=gid, rdev=rdev,
                                         size=size, time=t)
-        string_id = self.get_string_id_by_name(name)
-        node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, string_id=string_id, inode_id=inode)
+        name_id = self.get_name_id_by_name(name)
+        node_id = self.execute_named_stmt('insert_tree_item', parent_id=parent_id, name_id=name_id, inode_id=inode)
         return node_id, inode
 
-    def get_string_id_by_name(self, string):
-        result = self.execute_named_query('query_string_id', limit=1, string=string)
+    def get_name_id_by_name(self, name):
+        result = self.execute_named_query('query_name_id', limit=1, name=name)
         if not result:
-            result = self.execute_named_stmt('insert_string', string=string)
+            result = self.execute_named_stmt('insert_name', name=name)
             return int(result)
         else:
             return result[0]
@@ -163,8 +163,8 @@ class MysqlDb():
     def update_time(self, inode, atime, mtime):
         self.execute_named_stmt('update_inode_time', inode=inode, atime=atime, mtime=mtime)
 
-    def clean_strings(self):
-        return self.execute_named_stmt('delete_strings')
+    def clean_name(self):
+        return self.execute_named_stmt('delete_name')
 
     def clean_inodes(self):
         return self.execute_named_stmt('delete_inodes')
@@ -209,8 +209,8 @@ class MysqlDb():
         self.execute_named_stmt("delete_data", digest)
 
 
-    def update_leaf(self, inode, new_string_id):
-        self.execute_named_stmt('update_leaf_name', inode, new_string_id)
+    def update_leaf(self, inode, new_name_id):
+        self.execute_named_stmt('update_leaf_name', inode, new_name_id)
 
 
     def commit(self, nested=False):
