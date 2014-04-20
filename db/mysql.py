@@ -26,7 +26,7 @@ class MysqlDb():
     def load_sql(self):
         with open('sql/sql.json') as data_file:
             data = json.load(data_file)
-        self.logger.debug(data)
+        # self.logger.debug(data)
         return data
 
     def open_connection(self):
@@ -84,6 +84,7 @@ class MysqlDb():
         self.execute_named_stmt('create_hashes')
         self.execute_named_stmt('create_indices')
         self.execute_named_stmt('create_options')
+        self.execute_named_stmt('create_storage')
         string_id = self.execute_named_stmt('insert_string', string='')
         inode_id = self.execute_named_stmt('insert_inode', nlinks=2, mode=root_mode, uid=uid, gid=gid, rdev=0,
                                            size=1024 * 4, time=t)
@@ -197,53 +198,29 @@ class MysqlDb():
     def get_top_blocks(self):
         return self.execute_named_query('query_top_blocks')
 
-    def __open_datastore(self, use_gdbm):
-        # gdbm is preferred over other dbm implementations because it supports fast
-        # vs. synchronous modes, however any other dedicated key/value store should
-        # work just fine (albeit not as fast). Note though that existing key/value
-        # stores are always accessed through the library that created them.
-        mode = self.read_only and 'r' or 'c'
-        if use_gdbm:
-            try:
-                import gdbm
-
-                mode += self.synchronous and 's' or 'f'
-                return gdbm.open(self.datastore_file, mode)
-            except ImportError:
-                pass
-        import anydbm
-
-        return anydbm.open(self.datastore_file, mode)
 
     def get_data(self, digest):
-        return None
+        return self.execute_named_query("query_data", digest)
 
     def set_data(self, digest, new_block):
-        pass
+        self.execute_named_stmt("insert_data", digest, new_block)
 
     def remove_data(self, digest):
-        pass
+        self.execute_named_stmt("delete_data", digest)
 
-    def dbmcall(self, fun):  # {{{3
-        # I simply cannot find any freakin' documentation on the type of objects
-        # returned by anydbm and gdbm, so cannot verify that any single method will
-        # always be there, although most seem to...
-        if hasattr(self.__blocks, fun):
-            getattr(self.__blocks, fun)()
+
+    def update_leaf(self, inode, new_string_id):
+        self.execute_named_stmt('update_leaf_name', inode, new_string_id)
+
 
     def commit(self, nested=False):
         if not nested:
             self.__db.commit()
-        #      self.conn().commit()
 
     def rollback(self, nested=False):
         if not nested:
             self.logger.info('Rolling back changes')
             self.__db.rollback()
-        #      self.conn().rollback()
 
     def vacuum(self):
         self.__conn.execute('VACUUM')
-
-    def update_leaf(self, inode, new_string_id):
-        self.execute_named_stmt('update_leaf_name')

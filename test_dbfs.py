@@ -1,11 +1,10 @@
+import unittest
 from unittest import TestCase
 from dbfs import Dbfs
 import errno
 import os
 
-
 __author__ = 'yermak'
-
 
 class TestDbfs(TestCase):
     def setUp(self):
@@ -202,3 +201,6 @@ class TestDbfs(TestCase):
         # self.assertNotEqual(0, access_old_child, 'Still able to access old parent dir')
 
 
+if __name__ == "__main__":
+    #import sys;sys.argv = ['', 'Test.testName']
+    unittest.main()

@@ -6,6 +6,7 @@
 "create_hashes":"CREATE TABLE IF NOT EXISTS hashes (id BIGINT PRIMARY KEY AUTO_INCREMENT, hash CHAR(255) UNIQUE)",
 "create_indices":"CREATE TABLE IF NOT EXISTS indices (inode BIGINT, hash_id BIGINT, block_nr INTEGER, PRIMARY KEY (inode, hash_id, block_nr))",
 "create_options": "CREATE TABLE IF NOT EXISTS options (name VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)",
+"create_storage" : "CREATE TABLE IF NOT EXISTS storage (id BIGINT PRIMARY KEY AUTO_INCREMENT, hash CHAR(255), data BLOB)",
 
 
 "insert_tree_item" : "INSERT INTO tree (parent_id, name, inode) VALUES (%(parent_id)s, %(string_id)s, %(inode_id)s)",
@@ -14,6 +15,7 @@
 "insert_link" : "INSERT INTO links (inode, target) VALUES (%(inode)s, %(target)s)",
 "insert_index": "INSERT INTO indices (inode, hash_id, block_nr) VALUES (%(inode)s, %(hash_id)s, %(block_nr)s)",
 "insert_string": "INSERT INTO strings (string) VALUES (%(string)s)",
+"insert_data": "INSERT INTO storage (hash, data) VALUES (%(digest)s, %(data)s)",
 
 
 "query_nodes_names": "SELECT t.inode, s.string FROM tree t, strings s WHERE t.parent_id = %(node_id)s AND t.name = s.id",
@@ -29,6 +31,7 @@
 "query_inode_attr": "SELECT inode, nlinks, mode, uid, gid, rdev, size, atime, mtime, ctime FROM inodes WHERE inode = %(inode)s",
 "query_inode_by_parent_and_name": "SELECT t.id, t.inode FROM tree t, strings s WHERE t.parent_id = %(parent_id)s AND t.name = s.id AND s.string = %(name)s LIMIT 1",
 "query_top_blocks": "SELECT * FROM ( SELECT *, COUNT(*) AS 'count' FROM indices GROUP BY hash_id ORDER BY 'count' DESC ), hashes WHERE 'count' > 1 AND hash_id = hashes.id LIMIT 10",
+"query_data" : "SELECT data FROM storage WHERE hash=%(digest)s",
 
 "update_inode_mode": "UPDATE inodes SET mode = %(mode)s WHERE inode = %(inode)s",
 "update_inode_uid_gid": "UPDATE inodes SET uid = %(uid)s, gid = %(gid)s WHERE inode = %(inode)s",
@@ -36,7 +39,7 @@
 "inc_inode_nlinks": "UPDATE inodes SET nlinks = nlinks + 1 WHERE inode = %(inode)s",
 "update_inode_time": "UPDATE inodes SET atime = %(atime)s, mtime = %(mtime)s WHERE inode = %(inode)s",
 "update_inode_size": "UPDATE inodes SET size = %(size)s, mtime=%(mtime)s WHERE inode = %(inode)s",
-"update_leaf_name": "UPDATE tree set name = %(name)s where inode = %(inode)s",
+"update_leaf_name": "UPDATE tree set name = %(new_string_id)s where inode = %(inode)s",
 
 
 "delete_indices_by_node_and_block_nr": "DELETE FROM indices WHERE inode=%(inode)s and block_nr > %(block_nr)s",
@@ -44,7 +47,8 @@
 "delete_inodes":"DELETE FROM inodes WHERE nlinks = 0",
 "delete_indices":"DELETE FROM indices WHERE inode NOT IN (SELECT inode FROM inodes)",
 "delete_hashes" :"DELETE FROM hashes WHERE id NOT IN (SELECT hash_id FROM indices)",
-"delete_tree_item": "DELETE FROM tree WHERE id = %(id)s"
+"delete_tree_item": "DELETE FROM tree WHERE id = %(id)s",
+"delete_data": "DELETE FROM storage WHERE hash = %(digest)s"
 
 
 }
